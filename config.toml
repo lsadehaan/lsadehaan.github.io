@@ -1,6 +1,6 @@
-baseURL = "https://jlumbroso.github.io/hugo-github-example"
+baseURL = "https://lsadehaan.github.io/hugo-github-example"
 languageCode = "en-us"
-title = "Noteworthy"
+title = "IDNTEQ"
 theme = "noteworthy"
 enableRobotsTXT = true
 paginate = 4 # Set the number of posts to show before overflowing to the next page.
@@ -9,14 +9,11 @@ summaryLength = 10 # Configure how long the post summary should be on the homepa
 # Add your Google Analytics identifier: UA-XXXXXXXX-X
 googleAnalytics = "" 
 
-# Add your Disqus shortname here.
-disqusShortname = ""    
-
 [taxonomies]
   tag = "tags"
 
 [author]
-	name = "jlumbroso"
+	name = "Adriaan de Haan"
 
 # Set to false to disallow raw HTML in markdown files
 [markup.goldmark.renderer]
@@ -29,7 +26,7 @@ disqusShortname = ""
   # Turn on LaTeX support
 	math = true
 	# Blog description at the top of the homepage. Supports markdown.
-	description = "Noteworthy is a minimalist Hugo theme, perfect for writers and bloggers."
+	description = "Welcome to IDNTEQ home page"
 
     showReadMore = false
 
@@ -39,43 +36,12 @@ disqusShortname = ""
 
 	# Add links to your accounts. Remove the ones you don't want to include.
 	# Main
-	email = "#"
-    facebook = "#"
-    twitter = "#"
-	instagram = "#"
-	tumblr = "#"
-	reddit = "#"
-	pinterest = "#"
-	youtube = "#"
-    vimeo = "#"
-	weibo = "#"
-	vk = "#"
-	linkedin = "#"
-
-	# Writing
-    medium = "#"
-	blogger = "#"
-	wordpress = "#"
-
-	# Creative & Visual
-    dribbble = "#"
-	behance = "#"
-	deviantart = "#"
-	flickr = "#"
-
-    # Audio & Music
-    soundcloud = "#"
+	email = "#adriaan@idnteq.net"
+	linkedin = "#https://www.linkedin.com/in/adriaan-de-haan/"
 
 	# Programming
-    github = "#"
-	stackoverflow = "#"
-	gitlab = "#"
-	codepen = "#"
+    github = "#https://github.com/lsadehaan"
 
-    # Academic
-    googlescholar = "#"
-    impactstory = "#"
-    orcid = "#"  
 
 # Menu links along the sidebar navigation.
 [[menu.main]]
@@ -89,12 +55,6 @@ disqusShortname = ""
 	name = "Tags"
 	url = "tags/"
 	weight = 2
-
-[[menu.main]]
-	name = "Archives"
-	identifier = "archives"
-	url = "archives/"
-	weight = 3
 
 # Privacy configurations: https://gohugo.io/about/hugo-and-gdpr/
 [privacy]
