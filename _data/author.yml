@@ -1,0 +1,20 @@
+name: IDNTEQ
+dp: https://avatars.githubusercontent.com/u/4754900?v=4
+description: "
+  <p>
+    Founded by Adriaan de Haan, IDNTEQ provides consulting services in the GSM, Telecom, EMV, Banking, HSM and security fields.
+    IDNTEQ has also developed a secure PKI certified POI injection system, an EMV data preparation and data processing system and additional smartcard personalization solution for mass production equipment such as Datacard, Matica, Muhlbauer and Ulian machines.
+  </p>
+  <br/>
+  <p>
+    Follow Adriaan on <a href='https://github.com/lsadehaan' target='_blank'>Github</a> or connect on <a href='https://www.linkedin.com/in/adriaan-de-haan/' target='_blank'>LinkedIn</a>
+  </P>
+"
+email: adriaan@idnteq.net
+contact:
+  - title: linkedin
+    url: https://www.linkedin.com/in/adriaan-de-haan/
+  - title: github
+    url: https://github.com/lsadehaan
+  - title: email
+    url: mailto:adriaan@idnteq.net
