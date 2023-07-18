@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Consulting
-date: 2023-07-07
+date: 2023-06-06
 categories: ["Consulting", "EMV", "GSM", "Banking", "HSM", "Hardware Security Module", "Thales", "Safenet", "PKCS11"]
 ---
 
