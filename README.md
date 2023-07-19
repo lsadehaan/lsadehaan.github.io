@@ -4,7 +4,7 @@
 
 [Live Demo](https://sharadcodes.github.io/jekyll-theme-serial-programmer/)
 
-## How to install
+## How to install 
 
 1. Download or clone the repo
    `git clone https://github.com/sharadcodes/jekyll-theme-serial-programmer.git`
