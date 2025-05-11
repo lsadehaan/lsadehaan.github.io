@@ -226,6 +226,8 @@ main {
   color: var(--white-1);
   transition: color 0.2s;
 }
+
 .site-nav a:hover {
-  color: cyan;
+  color: var(--white-1);
+  border-bottom: 1px solid var(--white-1);
 }

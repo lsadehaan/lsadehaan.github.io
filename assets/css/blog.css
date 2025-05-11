@@ -181,6 +181,7 @@ main {
   color: var(--white-1);
   transition: color 0.2s;
 }
+
 .site-nav a:hover {
   color: cyan;
 }

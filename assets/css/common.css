@@ -75,3 +75,35 @@ hr {
   border-right: none !important;
   margin-bottom: 1.75rem !important;
 }
+
+/* Header and navigation styles moved from header.html */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0; /* Adjust as needed */
+}
+.site-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+}
+.site-nav li {
+  margin-left: 20px;
+}
+
+.site-nav a,
+.site-nav a:link,
+.site-nav a:visited,
+.site-nav a:active,
+.site-nav a:focus {
+  color: cyan;
+  border-bottom: 1px solid cyan;
+  text-decoration: none;
+  transition: color 0.2s, border-bottom 0.2s;
+}
+.site-nav a:hover {
+  color: var(--white-1);
+  border-bottom: 1px solid var(--white-1);
+}
