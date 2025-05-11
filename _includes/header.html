@@ -1,3 +1,33 @@
-<header>
+<header class="site-header">
   <a class="site-title" href="{{site.baseurl}}/">{{site.title}}</a>
+  <nav class="site-nav">
+    <ul>
+      <li><a href="{{site.baseurl}}/">Blog</a></li> <!-- Assuming home is blog -->
+      <li><a href="{{site.baseurl}}/emvtools/">EMV Tools</a></li>
+      <!-- Add other navigation links here as needed -->
+    </ul>
+  </nav>
 </header>
+
+<style>
+/* Basic styling for header nav for now, can be moved to common.css */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0; /* Adjust as needed */
+}
+.site-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+}
+.site-nav li {
+  margin-left: 20px;
+}
+.site-nav a {
+  text-decoration: none;
+  /* Inherit color or set specific */
+}
+</style>

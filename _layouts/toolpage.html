@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% include head.html %}
+  <body>
+    <main class="main-toolpage">
+      {% include header.html %}
+      <section class="page-content" style="padding: 20px;"> <!-- Added basic padding -->
+        {{ content }}
+      </section>
+      {% include footer.html %}
+    </main>
+    <!-- any page-specific modals or scripts can be included by the page itself -->
+  </body>
+</html> 
