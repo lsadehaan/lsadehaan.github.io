@@ -113,16 +113,24 @@ permalink: /emvtools/
     <div id="issuerCertTool" class="emv-tool-section">
       <h3>Issuer Certificate Validator</h3>
       <div style="margin-bottom:10px;">
-        <label for="issuerCaPubKey" style="display:block;">CA Public Key (HEX):</label>
-        <textarea id="issuerCaPubKey" class="tool-textarea" rows="2" style="width:100%;"></textarea>
+        <label for="issuerCaExp" style="display:block;">CA Exponent (HEX):</label>
+        <input id="issuerCaExp" class="tool-textarea" style="width:120px;" />
       </div>
       <div style="margin-bottom:10px;">
         <label for="issuerCaModulus" style="display:block;">CA Modulus (HEX):</label>
-        <textarea id="issuerCaModulus" class="tool-textarea" rows="2" style="width:100%;"></textarea>
+        <textarea id="issuerCaModulus" class="tool-textarea" rows="3" style="width:100%;"></textarea>
       </div>
       <div style="margin-bottom:10px;">
         <label for="issuerCert" style="display:block;">Certificate (HEX):</label>
         <textarea id="issuerCert" class="tool-textarea" rows="4" style="width:100%;"></textarea>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="issuerRemainder" style="display:block;">Issuer Public Key Remainder (HEX):</label>
+        <input id="issuerRemainder" class="tool-textarea" style="width:100%;" />
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="issuerExp" style="display:block;">Issuer Public Key Exponent (HEX):</label>
+        <input id="issuerExp" class="tool-textarea" style="width:120px;" />
       </div>
       <button id="validateIssuerCertBtn" type="button" style="margin-bottom:10px;">Validate</button>
       <div style="margin-bottom:10px;"><label for="issuerCertResults" style="display:block;">Results:</label>
@@ -289,6 +297,16 @@ removeWhitespaceBtn?.addEventListener('click', function() {
     hexOutputTextarea.setSelectionRange(0, newValue.length);
   }
   updateOffsetInfo();
+});
+
+hexOutputTextarea?.addEventListener('click', updateOffsetInfo);
+hexOutputTextarea?.addEventListener('keyup', updateOffsetInfo);
+hexOutputTextarea?.addEventListener('input', updateOffsetInfo);
+
+document.addEventListener('selectionchange', function() {
+  if (document.activeElement === hexOutputTextarea) {
+    updateOffsetInfo();
+  }
 });
 
 // RSA Tool Logic
@@ -498,7 +516,171 @@ emvCalcSelect?.addEventListener('change', function() {
 // Add a stub for the Validate button
 const validateIssuerCertBtn = document.getElementById('validateIssuerCertBtn');
 const issuerCertResults = document.getElementById('issuerCertResults');
+const issuerCaExp = document.getElementById('issuerCaExp');
+const issuerRemainder = document.getElementById('issuerRemainder');
+const issuerExp = document.getElementById('issuerExp');
+
 validateIssuerCertBtn?.addEventListener('click', function() {
-  issuerCertResults.value = 'Validation logic coming soon...';
+  // Clear previous results
+  issuerCertResults.value = '';
+  // Get input values
+  const caExpHex = issuerCaExp.value.trim().replace(/\s+/g, '');
+  const caModulusHex = issuerCaModulus.value.trim().replace(/\s+/g, '');
+  const certHex = issuerCert.value.trim().replace(/\s+/g, '');
+  const remainderHex = issuerRemainder.value.trim().replace(/\s+/g, '');
+  const issuerExpHex = issuerExp.value.trim().replace(/\s+/g, '');
+
+  // Helper for output
+  function log(msg) {
+    issuerCertResults.value += msg + '\n';
+  }
+
+  // Input validation
+  if (!caExpHex || !caModulusHex || !certHex) {
+    log('Error: CA Exponent, CA Modulus, and Certificate are required.');
+    return;
+  }
+  if (!/^[0-9a-fA-F]*$/.test(caExpHex) || !/^[0-9a-fA-F]+$/.test(caModulusHex) || !/^[0-9a-fA-F]+$/.test(certHex)) {
+    log('Error: CA Exponent, CA Modulus, and Certificate must be valid HEX.');
+    return;
+  }
+  if ((remainderHex && !/^[0-9a-fA-F]+$/.test(remainderHex)) || (issuerExpHex && !/^[0-9a-fA-F]+$/.test(issuerExpHex))) {
+    log('Error: Issuer Remainder and Issuer Exponent must be valid HEX if provided.');
+    return;
+  }
+
+  // Convert hex to BigInt/Uint8Array
+  function hexToBytes(hex) {
+    if (hex.length % 2 !== 0) hex = '0' + hex;
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    return bytes;
+  }
+  function bytesToHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  function hexToBigInt(hex) {
+    return BigInt('0x' + hex);
+  }
+
+  // Step 1: Check certificate length
+  if (certHex.length !== caModulusHex.length) {
+    log('Fail: Certificate length does not match CA modulus length.');
+    return;
+  }
+  log('Step 1: Certificate length matches CA modulus length.');
+
+  // Step 2: RSA decrypt (recover) the certificate using CA public key
+  // For EMV, the public exponent is usually 3 or 65537 (0x03 or 0x10001)
+  let caExponent = 65537n; // Default to 65537
+  try {
+    if (caExpHex) caExponent = hexToBigInt(caExpHex);
+  } catch (e) {
+    log('Error: Invalid CA Exponent.');
+    return;
+  }
+  const modulus = hexToBigInt(caModulusHex);
+  const certInt = hexToBigInt(certHex);
+  // RSA decrypt: m = c^e mod n
+  let recoveredInt;
+  try {
+    recoveredInt = certInt ** caExponent % modulus;
+  } catch (e) {
+    log('Error: RSA operation failed.');
+    return;
+  }
+  let recoveredHex = recoveredInt.toString(16).padStart(certHex.length, '0').toUpperCase();
+  if (recoveredHex.length < certHex.length) recoveredHex = recoveredHex.padStart(certHex.length, '0');
+  log('Step 2: Certificate decrypted (recovered data):');
+  log(recoveredHex);
+
+  // Step 3: Parse recovered data fields
+  const recBytes = hexToBytes(recoveredHex);
+  let pos = 0;
+  function getField(len) {
+    const out = recBytes.slice(pos, pos + len);
+    pos += len;
+    return out;
+  }
+  const header = getField(1)[0];
+  const certFormat = getField(1)[0];
+  const issuerId = getField(4);
+  const certExpDate = getField(2);
+  const certSerial = getField(3);
+  const hashAlgInd = getField(1)[0];
+  const pubKeyAlgInd = getField(1)[0];
+  const pubKeyLen = getField(1)[0];
+  const pubKeyExpLen = getField(1)[0];
+  // The rest is issuer public key or leftmost digits, hash, trailer
+  const pubKeyOrLeft = getField(recBytes.length - pos - 21); // 20 hash + 1 trailer
+  const hashResult = getField(20);
+  const trailer = getField(1)[0];
+
+  // Step 4: Check header and trailer
+  if (header !== 0x6A) {
+    log('Fail: Recovered Data Header is not 6A.');
+    return;
+  }
+  if (trailer !== 0xBC) {
+    log('Fail: Recovered Data Trailer is not BC.');
+    return;
+  }
+  log('Step 3: Header and Trailer are correct.');
+
+  // Step 5: Check certificate format
+  if (certFormat !== 0x02) {
+    log('Fail: Certificate Format is not 02.');
+    return;
+  }
+  log('Step 4: Certificate Format is correct.');
+
+  // Step 6: Show parsed fields
+  log('Issuer Identifier: ' + bytesToHex(issuerId));
+  log('Certificate Expiration Date: ' + bytesToHex(certExpDate));
+  log('Certificate Serial Number: ' + bytesToHex(certSerial));
+  log('Hash Algorithm Indicator: ' + hashAlgInd.toString(16).padStart(2, '0'));
+  log('Issuer Public Key Algorithm Indicator: ' + pubKeyAlgInd.toString(16).padStart(2, '0'));
+  log('Issuer Public Key Length: ' + pubKeyLen);
+  log('Issuer Public Key Exponent Length: ' + pubKeyExpLen);
+  log('Issuer Public Key or Leftmost Digits: ' + bytesToHex(pubKeyOrLeft));
+  log('Hash Result: ' + bytesToHex(hashResult));
+
+  // Step 7: Hash check
+  // Concatenate: certFormat, issuerId, certExpDate, certSerial, hashAlgInd, pubKeyAlgInd, pubKeyLen, pubKeyExpLen, pubKeyOrLeft, remainder, exponent
+  let hashDataArr = [
+    certFormat,
+    ...issuerId,
+    ...certExpDate,
+    ...certSerial,
+    hashAlgInd,
+    pubKeyAlgInd,
+    pubKeyLen,
+    pubKeyExpLen,
+    ...pubKeyOrLeft
+  ];
+  if (remainderHex) hashDataArr.push(...hexToBytes(remainderHex));
+  if (issuerExpHex) hashDataArr.push(...hexToBytes(issuerExpHex));
+  let hashData = new Uint8Array(hashDataArr);
+  log('Hash Data (for SHA1): ' + bytesToHex(hashData));
+
+  // Use existing hash function (from hash tool)
+  async function calcSHA1(hexStr) {
+    if (!window.crypto || !window.crypto.subtle) return null;
+    const buf = new Uint8Array(hexStr.match(/.{2}/g).map(b => parseInt(b, 16)));
+    const hashBuf = await window.crypto.subtle.digest('SHA-1', buf);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  calcSHA1(bytesToHex(hashData)).then(calcHash => {
+    log('Calculated SHA1: ' + calcHash);
+    log('Recovered Hash:  ' + bytesToHex(hashResult));
+    if (calcHash === bytesToHex(hashResult)) {
+      log('Hash matches!');
+    } else {
+      log('Hash does NOT match!');
+    }
+    log('Validation complete.');
+  });
 });
 </script>
