@@ -53,6 +53,7 @@ permalink: /emvtools/
       <textarea id="rsaResult" rows="4" class="tool-textarea" style="background-color: #e9e9e9;" readonly></textarea>
     </div>
     <div id="rsaError" style="color: red; margin-top: 10px;"></div>
+
   </div>
 
   <div id="hex" class="tab-content">
@@ -61,8 +62,8 @@ permalink: /emvtools/
     <input type="file" id="hexFile" style="margin-bottom: 10px;">
     <textarea id="hexOutput" class="tool-textarea" style="min-height: 200px; white-space: pre; overflow-wrap: break-word; background-color: #f5f5f5; border: 1px solid #ccc;"></textarea>
     <div style="margin-top: 10px;">
-      <input type="checkbox" id="hexSpacesToggle" checked>
-      <label for="hexSpacesToggle">Add spaces between bytes (re-renders from original file)</label>
+      <button id="addSpacesBtn" type="button">Add spaces between bytes</button>
+      <button id="removeWhitespaceBtn" type="button">Remove all whitespace</button>
     </div>
     <div id="hexOffsetInfo" style="margin-top: 10px; font-family: monospace;">
       Cursor: Char 0 | Byte 0
@@ -97,6 +98,7 @@ permalink: /emvtools/
       <textarea id="hashResult" rows="3" class="tool-textarea" style="background-color: #e9e9e9;" readonly></textarea>
     </div>
     <div id="hashError" style="color: red; margin-top: 10px;"></div>
+
   </div>
 
   <div id="emvcalcs" class="tab-content">
@@ -125,7 +127,8 @@ function openTool(evt, toolName) {
 let currentByteArray = null;
 const hexFileInput = document.getElementById('hexFile');
 const hexOutputTextarea = document.getElementById('hexOutput');
-const hexSpacesToggle = document.getElementById('hexSpacesToggle');
+const addSpacesBtn = document.getElementById('addSpacesBtn');
+const removeWhitespaceBtn = document.getElementById('removeWhitespaceBtn');
 const hexOffsetInfo = document.getElementById('hexOffsetInfo');
 const hexSelectionInfo = document.getElementById('hexSelectionInfo');
 
@@ -188,7 +191,7 @@ hexFileInput?.addEventListener('change', function(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     currentByteArray = new Uint8Array(e.target.result);
-    renderHex(currentByteArray, hexSpacesToggle.checked);
+    renderHex(currentByteArray, false);
   };
   reader.onerror = function() {
     hexOutputTextarea.value = 'Error reading file.';
@@ -197,16 +200,62 @@ hexFileInput?.addEventListener('change', function(event) {
   reader.readAsArrayBuffer(file);
 });
 
-hexSpacesToggle?.addEventListener('change', function() {
-  if (currentByteArray) {
-    renderHex(currentByteArray, this.checked);
+function addSpacesBetweenBytesToText(text) {
+  // Remove all whitespace
+  const hex = text.replace(/\s+/g, '');
+  // Add a space every two hex digits
+  return hex.replace(/([0-9a-fA-F]{2})(?=[0-9a-fA-F])/g, '$1 ').trim();
+}
+
+function removeAllWhitespaceFromText(text) {
+  return text.replace(/\s+/g, '');
+}
+
+addSpacesBtn?.addEventListener('click', function() {
+  if (!hexOutputTextarea) return;
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  let value = hexOutputTextarea.value;
+  if (start !== end) {
+    // Operate only on the selected text
+    const before = value.substring(0, start);
+    const selected = value.substring(start, end);
+    const after = value.substring(end);
+    const newSelected = addSpacesBetweenBytesToText(selected);
+    hexOutputTextarea.value = before + newSelected + after;
+    // Reselect the modified text
+    hexOutputTextarea.setSelectionRange(start, start + newSelected.length);
+  } else {
+    // Operate on the whole textarea
+    const newValue = addSpacesBetweenBytesToText(value);
+    hexOutputTextarea.value = newValue;
+    hexOutputTextarea.setSelectionRange(0, newValue.length);
   }
+  updateOffsetInfo();
 });
 
-hexOutputTextarea?.addEventListener('click', updateOffsetInfo);
-hexOutputTextarea?.addEventListener('keyup', updateOffsetInfo);
-hexOutputTextarea?.addEventListener('input', updateOffsetInfo);
-hexOutputTextarea?.addEventListener('selectionchange', updateOffsetInfo);
+removeWhitespaceBtn?.addEventListener('click', function() {
+  if (!hexOutputTextarea) return;
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  let value = hexOutputTextarea.value;
+  if (start !== end) {
+    // Operate only on the selected text
+    const before = value.substring(0, start);
+    const selected = value.substring(start, end);
+    const after = value.substring(end);
+    const newSelected = removeAllWhitespaceFromText(selected);
+    hexOutputTextarea.value = before + newSelected + after;
+    // Reselect the modified text
+    hexOutputTextarea.setSelectionRange(start, start + newSelected.length);
+  } else {
+    // Operate on the whole textarea
+    const newValue = removeAllWhitespaceFromText(value);
+    hexOutputTextarea.value = newValue;
+    hexOutputTextarea.setSelectionRange(0, newValue.length);
+  }
+  updateOffsetInfo();
+});
 
 // RSA Tool Logic
 const rsaExponentEl = document.getElementById('rsaExponent');
@@ -399,4 +448,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 });
-</script> 
+</script>
