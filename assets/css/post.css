@@ -161,7 +161,7 @@ main {
   margin: 1rem 0;
 }
 .content img.emoji {
-	margin: 0 !important;
+  margin: 0 !important;
 }
 
 /* pre , code */
@@ -220,4 +220,12 @@ main {
   body {
     padding: 1.5rem;
   }
+}
+
+.site-nav a {
+  color: var(--white-1);
+  transition: color 0.2s;
+}
+.site-nav a:hover {
+  color: cyan;
 }
