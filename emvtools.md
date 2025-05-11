@@ -103,8 +103,42 @@ permalink: /emvtools/
 
   <div id="emvcalcs" class="tab-content">
     <h2>Other EMV Calculations</h2>
-    <p>Tools for various other EMV specific cryptographic calculations (e.g., ARQC generation, PIN block formatting).</p>
-    <!-- UI for EMV Calcs will go here -->
+    <label for="emvCalcSelect" style="display:block; margin-bottom:8px;">Select EMV Calculation Tool:</label>
+    <select id="emvCalcSelect" style="margin-bottom: 16px; width: 100%; max-width: 400px;">
+      <option value="issuerCert">Issuer Certificate</option>
+      <option value="pinBlock">PIN Block (TBD)</option>
+      <option value="arqc">ARQC (TBD)</option>
+    </select>
+
+    <div id="issuerCertTool" class="emv-tool-section">
+      <h3>Issuer Certificate Validator</h3>
+      <div style="margin-bottom:10px;">
+        <label for="issuerCaPubKey" style="display:block;">CA Public Key (HEX):</label>
+        <textarea id="issuerCaPubKey" class="tool-textarea" rows="2" style="width:100%;"></textarea>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="issuerCaModulus" style="display:block;">CA Modulus (HEX):</label>
+        <textarea id="issuerCaModulus" class="tool-textarea" rows="2" style="width:100%;"></textarea>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="issuerCert" style="display:block;">Certificate (HEX):</label>
+        <textarea id="issuerCert" class="tool-textarea" rows="4" style="width:100%;"></textarea>
+      </div>
+      <button id="validateIssuerCertBtn" type="button" style="margin-bottom:10px;">Validate</button>
+      <div style="margin-bottom:10px;"><label for="issuerCertResults" style="display:block;">Results:</label>
+        <textarea id="issuerCertResults" class="tool-textarea" rows="8" style="width:100%; background:#f5f5f5;" readonly></textarea>
+      </div>
+    </div>
+
+    <div id="pinBlockTool" class="emv-tool-section" style="display:none;">
+      <h3>PIN Block (TBD)</h3>
+      <p>Coming soon...</p>
+    </div>
+    <div id="arqcTool" class="emv-tool-section" style="display:none;">
+      <h3>ARQC (TBD)</h3>
+      <p>Coming soon...</p>
+    </div>
+
   </div>
 </div>
 
@@ -447,5 +481,24 @@ document.addEventListener('DOMContentLoaded', function() {
         firstTabButton.className += ' active'; // Ensure it's marked active
     }
   }
+});
+
+// Add EMV Calcs tool selection logic
+const emvCalcSelect = document.getElementById('emvCalcSelect');
+const issuerCertTool = document.getElementById('issuerCertTool');
+const pinBlockTool = document.getElementById('pinBlockTool');
+const arqcTool = document.getElementById('arqcTool');
+
+emvCalcSelect?.addEventListener('change', function() {
+  issuerCertTool.style.display = this.value === 'issuerCert' ? '' : 'none';
+  pinBlockTool.style.display = this.value === 'pinBlock' ? '' : 'none';
+  arqcTool.style.display = this.value === 'arqc' ? '' : 'none';
+});
+
+// Add a stub for the Validate button
+const validateIssuerCertBtn = document.getElementById('validateIssuerCertBtn');
+const issuerCertResults = document.getElementById('issuerCertResults');
+validateIssuerCertBtn?.addEventListener('click', function() {
+  issuerCertResults.value = 'Validation logic coming soon...';
 });
 </script>
