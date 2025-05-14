@@ -105,12 +105,59 @@ permalink: /emvtools/
     <h2>Other EMV Calculations</h2>
     <label for="emvCalcSelect" style="display:block; margin-bottom:8px;">Select EMV Calculation Tool:</label>
     <select id="emvCalcSelect" style="margin-bottom: 16px; width: 100%; max-width: 400px;">
+      <option value="eloParser" selected>ELO Request Parser</option>
       <option value="issuerCert">Issuer Certificate</option>
       <option value="pinBlock">PIN Block (TBD)</option>
       <option value="arqc">ARQC (TBD)</option>
     </select>
 
-    <div id="issuerCertTool" class="emv-tool-section">
+    <div id="eloParserTool" class="emv-tool-section">
+      <h3>ELO Request Parser</h3>
+      <p>Load an ELO binary file (<code>.req</code> extension) to parse and extract certificate information.</p>
+      <div style="margin-bottom: 10px;">
+        <label for="eloReqFile" style="display: block; margin-bottom: 5px;">Upload ELO Request File (.req):</label>
+        <input type="file" id="eloReqFile" accept=".req" style="padding: 5px; width: 100%; box-sizing: border-box;">
+      </div>
+      <button id="downloadModulusBtn" type="button" style="padding: 8px 15px; margin-top: 5px; margin-bottom:15px;" disabled>Download Modulus (.bin)</button>
+
+      <style>
+        .summary-table {
+          width: 100%;
+          margin-bottom: 15px;
+          border-collapse: collapse;
+        }
+        .summary-table th, .summary-table td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        .summary-table th {
+          background-color: #f2f2f2;
+          width: 30%;
+        }
+      </style>
+      <h4>Certificate Summary:</h4>
+      <table id="eloCertSummaryTable" class="summary-table">
+        <thead>
+          <tr><th colspan="2">Key Certificate Details</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>IIN/BIN</td><td id="summaryIinBin">-</td></tr>
+          <tr><td>Issuer Key Index</td><td id="summaryKeyIndex">-</td></tr>
+          <tr><td>Expiration Date</td><td id="summaryExpDate">-</td></tr>
+          <tr><td>Key Size</td><td id="summaryKeySize">-</td></tr>
+          <tr><td>Public Exponent</td><td id="summaryExponent">-</td></tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top: 15px;">
+        <label for="eloReqOutput" style="display: block; margin-bottom: 5px;">Detailed Parsing Output:</label>
+        <textarea id="eloReqOutput" rows="10" class="tool-textarea" style="background-color: #e9e9e9; white-space: pre; overflow-wrap: normal; font-family: monospace;" readonly></textarea>
+      </div>
+      <div id="eloReqError" style="color: red; margin-top: 10px;"></div>
+    </div>
+
+    <div id="issuerCertTool" class="emv-tool-section" style="display:none;">
       <h3>Issuer Certificate Validator</h3>
       <div style="margin-bottom:10px;">
         <label for="issuerCaExp" style="display:block;">CA Exponent (HEX):</label>
@@ -146,7 +193,6 @@ permalink: /emvtools/
       <h3>ARQC (TBD)</h3>
       <p>Coming soon...</p>
     </div>
-
   </div>
 </div>
 
@@ -484,36 +530,303 @@ async function performHashCalculation() { // Now an async function
 
 calculateHashBtn?.addEventListener('click', performHashCalculation);
 
+// ELO Request Parser Logic
+const eloReqFileInput = document.getElementById('eloReqFile');
+const eloReqOutputTextarea = document.getElementById('eloReqOutput');
+const eloReqErrorEl = document.getElementById('eloReqError');
+const downloadModulusBtn = document.getElementById('downloadModulusBtn');
+
+// Summary Table Cell IDs
+const summaryFields = {
+    iinBin: document.getElementById('summaryIinBin'),
+    keyIndex: document.getElementById('summaryKeyIndex'),
+    expDate: document.getElementById('summaryExpDate'),
+    keySize: document.getElementById('summaryKeySize'),
+    exponent: document.getElementById('summaryExponent')
+};
+
+let currentModulusBytes = null;
+let currentFileNameBase = 'key';
+
+function resetSummaryTable() {
+    for (const key in summaryFields) {
+        if (summaryFields[key]) summaryFields[key].textContent = '-';
+    }
+    if (summaryFields.iinBin) summaryFields.iinBin.textContent = 'N/A - File specific';
+}
+
+function bcdToDec(val) {
+  return (val >> 4) * 10 + (val & 0x0F);
+}
+
+function eloBytesToHexString(byteArray) {
+  return Array.from(byteArray).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+eloReqFileInput?.addEventListener('change', function(event) {
+  const file = event.target.files[0];
+  currentModulusBytes = null;
+  if (downloadModulusBtn) downloadModulusBtn.disabled = true;
+  resetSummaryTable();
+
+  if (!file || !eloReqOutputTextarea || !eloReqErrorEl) return;
+
+  currentFileNameBase = file.name.split('.').slice(0, -1).join('.') || 'key';
+  eloReqOutputTextarea.value = 'Processing...';
+
+  if (!file.name.toLowerCase().endsWith('.req')) {
+    eloReqErrorEl.textContent = 'Invalid file type. Please upload a .req file.';
+    eloReqFileInput.value = ''; 
+    eloReqOutputTextarea.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let output = `File: ${file.name} (${file.size} bytes)\n\n`;
+    const errors = [];
+    try {
+      const fileBytes = new Uint8Array(e.target.result);
+      const dataView = new DataView(fileBytes.buffer);
+      let offset = 0;
+
+      if (fileBytes.byteLength < 30) { // Minimum plausible length check
+        throw new Error('File is too short to be a valid ELO request.');
+      }
+
+      // 1. Certificate format header (1 byte)
+      const certFormatHeader = dataView.getUint8(offset);
+      offset += 1;
+      output += `Certificate Format Header: 0x${certFormatHeader.toString(16).padStart(2, '0').toUpperCase()}\n`;
+      if (certFormatHeader !== 0x20) {
+        errors.push("Warning: Certificate Format Header is not 0x20.");
+      }
+
+      // 2. IIN/BIN (4 bytes)
+      if (offset + 4 > fileBytes.byteLength) throw new Error("File too short for IIN/BIN.");
+      const iinBinBytes = new Uint8Array(fileBytes.buffer, offset, 4);
+      offset += 4;
+      const iinBinHex = eloBytesToHexString(iinBinBytes);
+      output += `IIN/BIN: ${iinBinHex}\n`;
+      if (summaryFields.iinBin) summaryFields.iinBin.textContent = iinBinHex;
+
+      // 3. Issuer Key Index (3 bytes)
+      if (offset + 3 > fileBytes.byteLength) throw new Error("File too short for Issuer Key Index.");
+      const issuerKeyIndexBytes = new Uint8Array(fileBytes.buffer, offset, 3);
+      offset += 3;
+      const issuerKeyIndexHex = eloBytesToHexString(issuerKeyIndexBytes);
+      output += `Issuer Key Index: ${issuerKeyIndexHex}\n`;
+      if (summaryFields.keyIndex) summaryFields.keyIndex.textContent = issuerKeyIndexHex;
+
+      // 4. Exp Date (2 bytes YYMM)
+      if (offset + 2 > fileBytes.byteLength) throw new Error("File too short for Expiry Date.");
+      const expYearBcdByte = dataView.getUint8(offset); // YY byte
+      const expMonthBcdByte = dataView.getUint8(offset + 1); // MM byte
+      offset += 2;
+      
+      const actualYear = bcdToDec(expYearBcdByte);
+      const actualMonth = bcdToDec(expMonthBcdByte);
+
+      const expYearStr = actualYear.toString().padStart(2,'0'); 
+      const expMonthStr = actualMonth.toString().padStart(2,'0'); 
+      const formattedExpDate = `${expMonthStr}/20${expYearStr}`;
+      // Display raw hex bytes as they appear in file for YYMM_raw_bytes part
+      output += `Expiry Date (YYMM_raw_bytes): ${expYearBcdByte.toString(16).padStart(2,'0').toUpperCase()}${expMonthBcdByte.toString(16).padStart(2,'0').toUpperCase()} (Interpreted MM/YYYY: ${formattedExpDate})\n`;
+      if (summaryFields.expDate) summaryFields.expDate.textContent = formattedExpDate;
+
+      // 5. Hash Format (1 byte)
+      if (offset + 1 > fileBytes.byteLength) throw new Error("File too short for Hash Format.");
+      const hashFormat = dataView.getUint8(offset);
+      offset += 1;
+      output += `Hash Format: 0x${hashFormat.toString(16).padStart(2, '0').toUpperCase()}`;
+      if (hashFormat === 0x01) {
+        output += " (SHA-1)\n";
+      } else {
+        output += " (Unknown/Invalid)\n";
+        errors.push("Warning: Hash Format is not 0x01 (SHA-1).");
+      }
+
+      // 6. Key Type (1 byte)
+      if (offset + 1 > fileBytes.byteLength) throw new Error("File too short for Key Type.");
+      const keyType = dataView.getUint8(offset);
+      offset += 1;
+      output += `Key Type: 0x${keyType.toString(16).padStart(2, '0').toUpperCase()}`;
+      if (keyType === 0x01) {
+        output += " (RSA)\n";
+      } else {
+        output += " (Unknown/Invalid)\n";
+        errors.push("Warning: Key Type is not 0x01 (RSA).");
+      }
+
+      // 7. Length of Modulus (LM - 1 byte)
+      if (offset + 1 > fileBytes.byteLength) throw new Error("File too short for Modulus Length.");
+      const modulusLength = dataView.getUint8(offset);
+      offset += 1;
+      const modulusLengthBits = modulusLength * 8;
+      output += `Length of Modulus (LM): ${modulusLength} bytes (0x${modulusLength.toString(16).padStart(2, '0').toUpperCase()}) (${modulusLengthBits} bits)\n`;
+      if (summaryFields.keySize) summaryFields.keySize.textContent = `${modulusLength} bytes / ${modulusLengthBits} bits`;
+
+      // 8. Modulus (LM bytes)
+      if (offset + modulusLength > fileBytes.byteLength) throw new Error("File too short for Modulus.");
+      const modulusBytes = new Uint8Array(fileBytes.buffer, offset, modulusLength);
+      currentModulusBytes = modulusBytes; // Store for download
+      const modulusHex = eloBytesToHexString(modulusBytes);
+      offset += modulusLength; // <<< CRITICAL FIX: Advance offset by modulus length
+      output += `Modulus (N):\n${modulusHex}\n`;
+
+      // 9. Length of Exponent (LE - 1 byte)
+      if (offset + 1 > fileBytes.byteLength) throw new Error("File too short for Exponent Length.");
+      const exponentLength = dataView.getUint8(offset);
+      offset += 1;
+      output += `Length of Exponent (LE): ${exponentLength} (0x${exponentLength.toString(16).padStart(2, '0').toUpperCase()})\n`;
+
+      // 10. Exponent (LE bytes)
+      if (offset + exponentLength > fileBytes.byteLength) throw new Error("File too short for Exponent.");
+      const exponentBytes = new Uint8Array(fileBytes.buffer, offset, exponentLength);
+      const exponentHex = eloBytesToHexString(exponentBytes);
+      offset += exponentLength;
+      output += `Exponent (e): ${exponentHex}\n`;
+      if (summaryFields.exponent) summaryFields.exponent.textContent = exponentHex.startsWith('0') && exponentHex.length > 1 ? exponentHex.substring(1) : exponentHex; // Remove leading 0 if present, like 03 -> 3
+
+      // 11. HASH (20 bytes of SHA1 hash)
+      if (offset + 20 > fileBytes.byteLength) throw new Error("File too short for HASH.");
+      const hashBytes = new Uint8Array(fileBytes.buffer, offset, 20);
+      const providedHashHex = eloBytesToHexString(hashBytes);
+      offset += 20;
+      output += `Provided HASH (SHA-1):\n${providedHashHex}\n`;
+
+      // 12. SelfSignedCertificate (LM bytes)
+      if (offset + modulusLength > fileBytes.byteLength) throw new Error("File too short for SelfSignedCertificate.");
+      const selfSignedCertificateBytes = new Uint8Array(fileBytes.buffer, offset, modulusLength);
+      const selfSignedCertificateHex = eloBytesToHexString(selfSignedCertificateBytes);
+      offset += modulusLength;
+      output += `SelfSignedCertificate (Encrypted/Signed Data Block):\n${selfSignedCertificateHex}\n`;
+
+      output += "\n--- RSA Decryption/Recovery of SelfSignedCertificate ---\n";
+      try {
+        const N_rsa = hexToBigInt(modulusHex);
+        const e_rsa = hexToBigInt(exponentHex);
+        const C_rsa = hexToBigInt(selfSignedCertificateHex);
+
+        if (N_rsa <= BigInt(0)) throw new Error("Modulus must be positive for RSA.");
+        if (e_rsa <= BigInt(0)) throw new Error("Exponent must be positive for RSA.");
+        if (C_rsa >= N_rsa) errors.push("Warning: SelfSignedCertificate data is numerically >= Modulus. This is unusual for RSA encrypted/signed blocks.");
+
+        const openedDataBigInt = power(C_rsa, e_rsa, N_rsa); // power(base, exp, mod)
+        let openedDataHex = bigIntToHex(openedDataBigInt);
+        // Pad to ensure it represents the full modulus length
+        if (openedDataHex.length < modulusLength * 2) {
+          openedDataHex = openedDataHex.padStart(modulusLength * 2, '0');
+        }
+        output += `Opened/Recovered Data (SelfSignedCertificate ^ Exponent mod Modulus):\n${openedDataHex.toUpperCase()}\n`;
+        output += `\nVerification Steps (Placeholder based on common EMV patterns):
+`;
+        output += `1. The 'Opened/Recovered Data' above should be parsed according to its own internal format.
+`;
+        output += `2. Typically, this internal format includes: a header byte (e.g., 0x6A), certificate format, various data fields, an *embedded* HASH (e.g., 20 bytes SHA-1), and a trailer byte (e.g., 0xBC).
+`;
+        output += `3. The *embedded* HASH should be the SHA-1 of a concatenation of preceding data fields within the 'Opened/Recovered Data' (and potentially other linked data like public key components if they were split).
+`;
+        output += `4. Compare the calculated hash (from step 3) with the *embedded* HASH. They must match for integrity.
+`;
+        output += `5. The 'Provided HASH' (${providedHashHex}) from the input file needs its role clarified. It might be identical to the *embedded* HASH, or a hash of the data that *formed* the SelfSignedCertificate block before the RSA operation. Further specification is needed for full verification against this 'Provided HASH'.\n`;
+
+      } catch (rsaErr) {
+        output += `Error during RSA operation: ${rsaErr.message}\n`;
+        errors.push(`RSA Operation Error: ${rsaErr.message}`);
+      }
+
+      if (offset < fileBytes.byteLength) {
+        output += `\nWarning: ${fileBytes.byteLength - offset} trailing bytes found in the file after parsing all expected fields.\n`;
+        errors.push(`Warning: ${fileBytes.byteLength - offset} trailing bytes found.`);
+      } else if (offset > fileBytes.byteLength) {
+        throw new Error("Offset exceeded file length during parsing. Logic error or malformed file.");
+      }
+
+      eloReqOutputTextarea.value = output;
+      if (errors.length > 0) {
+        eloReqErrorEl.textContent = errors.join("\n");
+      } else {
+        eloReqErrorEl.textContent = "Parsing and RSA operation successful.";
+        if (downloadModulusBtn && currentModulusBytes) downloadModulusBtn.disabled = false;
+      }
+
+    } catch (parseErr) {
+      eloReqOutputTextarea.value = output + `\n\nCritical Error: ${parseErr.message}`;
+      eloReqErrorEl.textContent = `Error: ${parseErr.message}`;
+      console.error('ELO Request Parser Error:', parseErr);
+    }
+  };
+  reader.onerror = function() {
+    eloReqErrorEl.textContent = 'Error reading file.';
+    eloReqOutputTextarea.value = 'Error reading file.';
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+downloadModulusBtn?.addEventListener('click', function() {
+    if (currentModulusBytes && currentModulusBytes.length > 0) {
+        const blob = new Blob([currentModulusBytes], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentFileNameBase}.bin`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } else {
+        eloReqErrorEl.textContent = 'No modulus data available to download.';
+    }
+});
+
 // Open the first tab by default on page load
 document.addEventListener('DOMContentLoaded', function() {
-  var firstTabButton = document.querySelector('.tab-button.active'); // Target the already active one if set in HTML
-  if (!firstTabButton) firstTabButton = document.querySelector('.tab-button'); // Fallback
+  var firstTabButton = document.querySelector('.tab-button.active'); 
+  if (!firstTabButton) firstTabButton = document.querySelector('.tab-button'); // Fallback to the first tab button if none are active
   
   if (firstTabButton) {
-    // Simulate a click if openTool expects an event, or call directly
-    // openTool(null, firstTabButton.getAttribute('onclick').match(/'([^']+)'/)[1]); 
-    // Simpler: ensure the first tab's content is visible directly if no click logic is needed beyond class
     const toolName = firstTabButton.getAttribute('onclick').match(/openTool\(event, '([^']*)'\)/)[1];
     if (toolName) {
-        openTool(null, toolName); // Pass null for event if not strictly needed for this init call
-        firstTabButton.className += ' active'; // Ensure it's marked active
+        openTool(null, toolName); // Open the tool content
+        if (!firstTabButton.classList.contains('active')) { // Ensure the button is marked active
+            firstTabButton.className += ' active';
+        }
     }
   }
-});
+
+  // Initialize visibility for EMV Calc sub-tools based on the <select> default
+  const emvCalcSelectInitial = document.getElementById('emvCalcSelect');
+  const eloParserToolInitial = document.getElementById('eloParserTool');
+  const issuerCertToolInitial = document.getElementById('issuerCertTool');
+  const pinBlockToolInitial = document.getElementById('pinBlockTool');
+  const arqcToolInitial = document.getElementById('arqcTool');
+
+  if (emvCalcSelectInitial) { // Check if the select element exists
+    const selectedValue = emvCalcSelectInitial.value; // Default should be 'eloParser' due to 'selected' attribute in HTML
+    if(eloParserToolInitial) eloParserToolInitial.style.display = selectedValue === 'eloParser' ? '' : 'none';
+    if(issuerCertToolInitial) issuerCertToolInitial.style.display = selectedValue === 'issuerCert' ? '' : 'none';
+    if(pinBlockToolInitial) pinBlockToolInitial.style.display = selectedValue === 'pinBlock' ? '' : 'none';
+    if(arqcToolInitial) arqcToolInitial.style.display = selectedValue === 'arqc' ? '' : 'none';
+  }
+}); // End of DOMContentLoaded
 
 // Add EMV Calcs tool selection logic
 const emvCalcSelect = document.getElementById('emvCalcSelect');
+const eloParserTool = document.getElementById('eloParserTool'); 
 const issuerCertTool = document.getElementById('issuerCertTool');
 const pinBlockTool = document.getElementById('pinBlockTool');
 const arqcTool = document.getElementById('arqcTool');
 
 emvCalcSelect?.addEventListener('change', function() {
-  issuerCertTool.style.display = this.value === 'issuerCert' ? '' : 'none';
-  pinBlockTool.style.display = this.value === 'pinBlock' ? '' : 'none';
-  arqcTool.style.display = this.value === 'arqc' ? '' : 'none';
+  const selectedValue = this.value;
+  if(eloParserTool) eloParserTool.style.display = selectedValue === 'eloParser' ? '' : 'none';
+  if(issuerCertTool) issuerCertTool.style.display = selectedValue === 'issuerCert' ? '' : 'none';
+  if(pinBlockTool) pinBlockTool.style.display = selectedValue === 'pinBlock' ? '' : 'none';
+  if(arqcTool) arqcTool.style.display = selectedValue === 'arqc' ? '' : 'none';
 });
 
-// Add a stub for the Validate button
+// Add a stub for the Validate button (Issuer Certificate validation logic from upstream)
 const validateIssuerCertBtn = document.getElementById('validateIssuerCertBtn');
 const issuerCertResults = document.getElementById('issuerCertResults');
 const issuerCaExp = document.getElementById('issuerCaExp');
