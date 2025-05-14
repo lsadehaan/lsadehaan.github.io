@@ -618,20 +618,20 @@ eloReqFileInput?.addEventListener('change', function(event) {
       output += `Issuer Key Index: ${issuerKeyIndexHex}\n`;
       if (summaryFields.keyIndex) summaryFields.keyIndex.textContent = issuerKeyIndexHex;
 
-      // 4. Exp Date (2 bytes YYMM)
+      // 4. Exp Date (2 bytes - MMYY in file)
       if (offset + 2 > fileBytes.byteLength) throw new Error("File too short for Expiry Date.");
-      const expYearBcdByte = dataView.getUint8(offset); // YY byte
-      const expMonthBcdByte = dataView.getUint8(offset + 1); // MM byte
+      const expMonthBcdByte = dataView.getUint8(offset); // MM byte from file
+      const expYearBcdByte = dataView.getUint8(offset + 1); // YY byte from file
       offset += 2;
       
-      const actualYear = bcdToDec(expYearBcdByte);
       const actualMonth = bcdToDec(expMonthBcdByte);
+      const actualYear = bcdToDec(expYearBcdByte);
 
-      const expYearStr = actualYear.toString().padStart(2,'0'); 
       const expMonthStr = actualMonth.toString().padStart(2,'0'); 
+      const expYearStr = actualYear.toString().padStart(2,'0'); 
       const formattedExpDate = `${expMonthStr}/20${expYearStr}`;
-      // Display raw hex bytes as they appear in file for YYMM_raw_bytes part
-      output += `Expiry Date (YYMM_raw_bytes): ${expYearBcdByte.toString(16).padStart(2,'0').toUpperCase()}${expMonthBcdByte.toString(16).padStart(2,'0').toUpperCase()} (Interpreted MM/YYYY: ${formattedExpDate})\n`;
+      // Display raw hex bytes as they appear in file (MM then YY) for MMYY_raw_bytes part
+      output += `Expiry Date (MMYY_raw_bytes): ${expMonthBcdByte.toString(16).padStart(2,'0').toUpperCase()}${expYearBcdByte.toString(16).padStart(2,'0').toUpperCase()} (Interpreted MM/YYYY: ${formattedExpDate})\n`;
       if (summaryFields.expDate) summaryFields.expDate.textContent = formattedExpDate;
 
       // 5. Hash Format (1 byte)
