@@ -366,6 +366,7 @@ const rsaPrivateOpBtn = document.getElementById('rsaPrivateOpBtn');
 const rsaErrorEl = document.getElementById('rsaError');
 
 function hexToBigInt(hex) {
+  hex = hex.replace(/\s+/g, ''); // Remove all whitespace
   if (hex.startsWith('0x')) {
     hex = hex.substring(2);
   }
@@ -453,6 +454,7 @@ const hashResultEl = document.getElementById('hashResult');
 const hashErrorEl = document.getElementById('hashError');
 
 function hexStringToArrayBuffer(hexString) {
+  hexString = hexString.replace(/\s+/g, ''); // Remove all whitespace
   // Remove 0x prefix if present
   if (hexString.startsWith('0x')) {
     hexString = hexString.slice(2);
@@ -864,6 +866,7 @@ validateIssuerCertBtn?.addEventListener('click', function() {
 
   // Convert hex to BigInt/Uint8Array
   function hexToBytes(hex) {
+    hex = hex.replace(/\s+/g, ''); // Remove all whitespace
     if (hex.length % 2 !== 0) hex = '0' + hex;
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < hex.length; i += 2) {
@@ -875,6 +878,11 @@ validateIssuerCertBtn?.addEventListener('click', function() {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
   }
   function hexToBigInt(hex) {
+    hex = hex.replace(/\s+/g, ''); // Remove all whitespace
+    if (hex.startsWith('0x')) {
+      hex = hex.substring(2);
+    }
+    if (hex.length === 0) return BigInt(0);
     return BigInt('0x' + hex);
   }
 
