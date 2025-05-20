@@ -64,6 +64,13 @@ permalink: /emvtools/
     <div style="margin-top: 10px;">
       <button id="addSpacesBtn" type="button">Add spaces between bytes</button>
       <button id="removeWhitespaceBtn" type="button">Remove all whitespace</button>
+      <label style="margin-left:20px;">Parity:
+        <select id="parityTypeSelect" style="margin-left:5px;">
+          <option value="even">Even</option>
+          <option value="odd">Odd</option>
+        </select>
+      </label>
+      <button id="changeParityBtn" type="button" disabled>Change Parity</button>
     </div>
     <div id="hexOffsetInfo" style="margin-top: 10px; font-family: monospace;">
       Cursor: Char 0 | Byte 0
@@ -193,6 +200,7 @@ permalink: /emvtools/
       <h3>ARQC (TBD)</h3>
       <p>Coming soon...</p>
     </div>
+
   </div>
 </div>
 
@@ -219,6 +227,8 @@ const addSpacesBtn = document.getElementById('addSpacesBtn');
 const removeWhitespaceBtn = document.getElementById('removeWhitespaceBtn');
 const hexOffsetInfo = document.getElementById('hexOffsetInfo');
 const hexSelectionInfo = document.getElementById('hexSelectionInfo');
+const changeParityBtn = document.getElementById('changeParityBtn');
+const parityTypeSelect = document.getElementById('parityTypeSelect');
 
 // Helper function to count actual hex bytes in a string, ignoring non-hex chars
 function countHexBytesInString(str) {
@@ -355,6 +365,88 @@ document.addEventListener('selectionchange', function() {
   }
 });
 
+function isFullByteSelection(text) {
+  // Remove whitespace and check if at least 2 hex digits
+  return text.replace(/\s+/g, '').length >= 2;
+}
+
+function setParity(byte, parityType) {
+  // Count number of 1-bits in the upper 7 bits
+  let bits = byte >> 1;
+  let ones = 0;
+  for (let i = 0; i < 7; i++) {
+    if (bits & (1 << i)) ones++;
+  }
+  let lsb = byte & 1;
+  let totalOnes = ones + lsb;
+  if (parityType === 'even') {
+    // Set LSB so total ones is even
+    if (totalOnes % 2 !== 0) {
+      byte ^= 1; // flip LSB
+    }
+  } else {
+    // Set LSB so total ones is odd
+    if (totalOnes % 2 === 0) {
+      byte ^= 1; // flip LSB
+    }
+  }
+  return byte;
+}
+
+function changeParityOfHexString(hex, parityType) {
+  // Remove whitespace
+  hex = hex.replace(/\s+/g, '');
+  let out = '';
+  for (let i = 0; i < hex.length; i += 2) {
+    if (i + 2 > hex.length) break;
+    let byte = parseInt(hex.substr(i, 2), 16);
+    let newByte = setParity(byte, parityType);
+    out += newByte.toString(16).padStart(2, '0').toUpperCase();
+  }
+  return out;
+}
+
+hexOutputTextarea?.addEventListener('select', function() {
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  const selected = hexOutputTextarea.value.substring(start, end);
+  changeParityBtn.disabled = !isFullByteSelection(selected);
+});
+hexOutputTextarea?.addEventListener('keyup', function() {
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  const selected = hexOutputTextarea.value.substring(start, end);
+  changeParityBtn.disabled = !isFullByteSelection(selected);
+});
+hexOutputTextarea?.addEventListener('input', function() {
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  const selected = hexOutputTextarea.value.substring(start, end);
+  changeParityBtn.disabled = !isFullByteSelection(selected);
+});
+
+changeParityBtn?.addEventListener('click', function() {
+  if (!hexOutputTextarea) return;
+  const start = hexOutputTextarea.selectionStart;
+  const end = hexOutputTextarea.selectionEnd;
+  let value = hexOutputTextarea.value;
+  if (start === end) return;
+  const before = value.substring(0, start);
+  const selected = value.substring(start, end);
+  const after = value.substring(end);
+  const parityType = parityTypeSelect.value;
+  // Only operate on full bytes
+  let changed = changeParityOfHexString(selected, parityType);
+  // Add spaces if original selection had spaces between bytes
+  if (/\s/.test(selected)) {
+    changed = addSpacesBetweenBytesToText(changed);
+  }
+  hexOutputTextarea.value = before + changed + after;
+  // Reselect the modified text
+  hexOutputTextarea.setSelectionRange(start, start + changed.length);
+  updateOffsetInfo();
+});
+
 // RSA Tool Logic
 const rsaExponentEl = document.getElementById('rsaExponent');
 const rsaPublicModulusEl = document.getElementById('rsaPublicModulus');
@@ -394,16 +486,17 @@ function performRsaOperation(operationType) {
   rsaErrorEl.textContent = '';
   rsaResultEl.value = '';
   try {
-    const exponentHex = rsaExponentEl.value.trim();
-    const dataHex = rsaDataEl.value.trim();
+    // Strip whitespace before validation!
+    const exponentHex = rsaExponentEl.value.trim().replace(/\s+/g, '');
+    const dataHex = rsaDataEl.value.trim().replace(/\s+/g, '');
     let modulusHex = '';
     let modulusElForCheck = null;
 
     if (operationType === 'public') {
-      modulusHex = rsaPublicModulusEl.value.trim();
+      modulusHex = rsaPublicModulusEl.value.trim().replace(/\s+/g, '');
       modulusElForCheck = rsaPublicModulusEl;
     } else if (operationType === 'private') {
-      modulusHex = rsaPrivateModulusEl.value.trim();
+      modulusHex = rsaPrivateModulusEl.value.trim().replace(/\s+/g, '');
       modulusElForCheck = rsaPrivateModulusEl;
     } else {
       rsaErrorEl.textContent = 'Invalid operation type.';
@@ -494,7 +587,8 @@ async function performHashCalculation() { // Now an async function
 
   try {
     const selectedAlgorithm = hashAlgorithmEl.value;
-    const hexInput = hashInputEl.value.trim();
+    // Strip whitespace before validation!
+    let hexInput = hashInputEl.value.trim().replace(/\s+/g, '');
 
     if (hexInput.length === 0) { // Allow empty string input for hashing
         // Some APIs might produce a hash for an empty input, some might not. 
@@ -839,6 +933,7 @@ validateIssuerCertBtn?.addEventListener('click', function() {
   // Clear previous results
   issuerCertResults.value = '';
   // Get input values
+  // Strip whitespace before validation!
   const caExpHex = issuerCaExp.value.trim().replace(/\s+/g, '');
   const caModulusHex = issuerCaModulus.value.trim().replace(/\s+/g, '');
   const certHex = issuerCert.value.trim().replace(/\s+/g, '');
