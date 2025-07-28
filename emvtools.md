@@ -11,6 +11,7 @@ permalink: /emvtools/
     <button class="tab-button active" onclick="openTool(event, 'symmetric')">Symmetric Crypto</button>
     <button class="tab-button" onclick="openTool(event, 'rsa')">RSA</button>
     <button class="tab-button" onclick="openTool(event, 'hex')">Hex Manipulator</button>
+    <button class="tab-button" onclick="openTool(event, 'cps')">CPS Parser</button>
     <button class="tab-button" onclick="openTool(event, 'hash')">Hash</button>
     <button class="tab-button" onclick="openTool(event, 'emvcalcs')">EMV Calcs</button>
   </div>
@@ -77,6 +78,37 @@ permalink: /emvtools/
     </div>
     <div id="hexSelectionInfo" style="margin-top: 5px; font-family: monospace;">
       Selected: 0 Chars | 0 Bytes
+    </div>
+  </div>
+
+  <div id="cps" class="tab-content">
+    <h2>CPS Parser</h2>
+    <p>Extract and parse EMV CPS DGI data from personalization files. This tool locates binary card data between configurable ASCII delimiters and formats it for easy analysis.</p>
+    
+    <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; background-color: #f9f9f9;">
+      <h4>File Configuration</h4>
+      <div style="margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 5px;">Start Delimiter:</label>
+        <input type="text" id="cpsStartDelimiter" value="#SMC#1[" style="width: 150px; padding: 5px; margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 5px;">End Delimiter:</label>
+        <input type="text" id="cpsEndDelimiter" value="#END#" style="width: 100px; padding: 5px;">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label for="cpsFile" style="display: block; margin-bottom: 5px;">Select CPS Personalization File:</label>
+        <input type="file" id="cpsFile" style="margin-bottom: 10px;">
+      </div>
+      <button id="extractCpsBtn" type="button" style="padding: 8px 15px; background-color: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;">Extract & Parse CPS Data</button>
+      <div id="cpsError" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
+    <div style="margin-bottom: 10px;">
+      <label for="cpsOutput" style="display: block; margin-bottom: 5px;">Parsed CPS Data:</label>
+      <textarea id="cpsOutput" class="tool-textarea" style="min-height: 400px; white-space: pre; overflow-wrap: normal; background-color: #f5f5f5; border: 1px solid #ccc; font-family: monospace;" readonly></textarea>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <button id="cpsCopyToHexBtn" type="button" style="padding: 8px 15px; margin-right: 10px;">Copy to Hex Manipulator</button>
+      <button id="cpsDownloadBtn" type="button" style="padding: 8px 15px;" disabled>Download Binary Data</button>
     </div>
   </div>
 
@@ -445,6 +477,285 @@ changeParityBtn?.addEventListener('click', function() {
   // Reselect the modified text
   hexOutputTextarea.setSelectionRange(start, start + changed.length);
   updateOffsetInfo();
+});
+
+// CPS Data Extractor Logic
+const cpsFileInput = document.getElementById('cpsFile');
+const extractCpsBtn = document.getElementById('extractCpsBtn');
+const cpsStartDelimiterInput = document.getElementById('cpsStartDelimiter');
+const cpsEndDelimiterInput = document.getElementById('cpsEndDelimiter');
+const cpsErrorEl = document.getElementById('cpsError');
+const cpsOutputTextarea = document.getElementById('cpsOutput');
+const cpsCopyToHexBtn = document.getElementById('cpsCopyToHexBtn');
+const cpsDownloadBtn = document.getElementById('cpsDownloadBtn');
+
+let currentCpsBinaryData = null;
+
+function formatCpsDataAsHex(binaryData) {
+  if (!binaryData || binaryData.length === 0) return '';
+  
+  let formattedHex = '';
+  let offset = 0;
+  
+  // Helper function to get bytes and format them
+  function getBytes(count) {
+    const bytes = binaryData.slice(offset, offset + count);
+    offset += count;
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  }
+  
+  // Helper function to get 2-byte length as number
+  function getLength() {
+    if (offset + 2 > binaryData.length) return 0;
+    const lengthBytes = binaryData.slice(offset, offset + 2);
+    offset += 2;
+    return (lengthBytes[0] << 8) | lengthBytes[1];
+  }
+  
+  try {
+    formattedHex += `// CPS Data Structure (Total Length: ${binaryData.length} bytes)\n\n`;
+    
+    let appCount = 0;
+    
+    while (offset < binaryData.length) {
+      appCount++;
+      formattedHex += `// ===== Application ${appCount} =====\n`;
+      
+      // Header (10 bytes)
+      if (offset + 10 > binaryData.length) break;
+      const header = getBytes(10);
+      formattedHex += `// Header (10 bytes):\n${header}\n\n`;
+      
+      // Key ID (8 bytes)
+      if (offset + 8 > binaryData.length) break;
+      const keyId = getBytes(8);
+      formattedHex += `// Key ID (8 bytes):\n${keyId}\n\n`;
+      
+      // Application data length (2 bytes)
+      if (offset + 2 > binaryData.length) break;
+      const appDataLength = getLength();
+      formattedHex += `// Application Data Length: ${appDataLength} bytes\n`;
+      formattedHex += `${(appDataLength >> 8).toString(16).padStart(2, '0').toUpperCase()} ${(appDataLength & 0xFF).toString(16).padStart(2, '0').toUpperCase()}\n\n`;
+      
+      const appDataStart = offset;
+      const appDataEnd = Math.min(offset + appDataLength, binaryData.length);
+      
+      // Parse application data
+      formattedHex += `// Application Data (${appDataLength} bytes):\n`;
+      
+      // AID TLV (should start with 84)
+      if (offset < appDataEnd && binaryData[offset] === 0x84) {
+        const tag = getBytes(1);
+        const aidLength = binaryData[offset];
+        offset++;
+        const aidLengthHex = aidLength.toString(16).padStart(2, '0').toUpperCase();
+        const aid = getBytes(aidLength);
+        formattedHex += `// AID TLV:\n${tag} ${aidLengthHex} ${aid}\n\n`;
+      }
+      
+      // DGIs
+      let dgiCount = 0;
+      while (offset < appDataEnd - 12) { // Leave space for 12-byte trailer
+        // Look for DGI marker 8802
+        if (offset + 1 < binaryData.length && 
+            binaryData[offset] === 0x88 && binaryData[offset + 1] === 0x02) {
+          
+          dgiCount++;
+          const marker = getBytes(2); // 8802
+          
+          if (offset + 3 > binaryData.length) break;
+          const dgiTag = getBytes(2);
+          const dgiLength = binaryData[offset];
+          offset++;
+          const dgiLengthHex = dgiLength.toString(16).padStart(2, '0').toUpperCase();
+          
+          formattedHex += `// DGI ${dgiCount} (Tag: ${dgiTag}, Length: ${dgiLength}):\n`;
+          formattedHex += `${marker} ${dgiTag} ${dgiLengthHex}`;
+          
+          if (dgiLength > 0 && offset + dgiLength <= binaryData.length) {
+            const dgiData = getBytes(dgiLength);
+            formattedHex += ` ${dgiData}`;
+          }
+          formattedHex += '\n\n';
+        } else {
+          // Skip unknown byte
+          offset++;
+        }
+      }
+      
+      // Skip to end of application data and read trailing 12 bytes
+      offset = appDataEnd - 12;
+      if (offset >= 0 && offset + 12 <= binaryData.length) {
+        const trailer = getBytes(12);
+        formattedHex += `// Trailing 12 bytes (hash/padding):\n${trailer}\n\n`;
+      }
+      
+      offset = appDataEnd;
+    }
+    
+    return formattedHex;
+    
+  } catch (error) {
+    return `// Error parsing CPS data: ${error.message}\n\n` + 
+           Array.from(binaryData).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  }
+}
+
+extractCpsBtn?.addEventListener('click', function() {
+  const file = cpsFileInput.files[0];
+  if (!file) {
+    cpsErrorEl.textContent = 'Please select a file first.';
+    return;
+  }
+  
+  cpsErrorEl.textContent = '';
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      // Read file as text first to find delimiters
+      const textData = new TextDecoder('utf-8').decode(e.target.result);
+      const startDelimiter = cpsStartDelimiterInput.value || '#SMC#1[';
+      const endDelimiter = cpsEndDelimiterInput.value || '#END#';
+      
+      // Find first occurrence of start delimiter
+      const startIndex = textData.indexOf(startDelimiter);
+      if (startIndex === -1) {
+        cpsErrorEl.textContent = `Start delimiter "${startDelimiter}" not found in file.`;
+        return;
+      }
+      
+      // Find first occurrence of end delimiter after start
+      const endIndex = textData.indexOf(endDelimiter, startIndex + startDelimiter.length);
+      if (endIndex === -1) {
+        cpsErrorEl.textContent = `End delimiter "${endDelimiter}" not found after start delimiter.`;
+        return;
+      }
+      
+      // Extract the content between delimiters
+      const delimiterContent = textData.substring(startIndex + startDelimiter.length, endIndex);
+      
+      // First 6 characters should be the decimal length
+      if (delimiterContent.length < 6) {
+        cpsErrorEl.textContent = 'Content between delimiters is too short to contain length field.';
+        return;
+      }
+      
+      const lengthStr = delimiterContent.substring(0, 6);
+      const expectedLength = parseInt(lengthStr, 10);
+      
+      if (isNaN(expectedLength)) {
+        cpsErrorEl.textContent = `Invalid length field: "${lengthStr}" (should be 6 decimal digits).`;
+        return;
+      }
+      
+      // Convert the file content to bytes for binary extraction
+      const fileBytes = new Uint8Array(e.target.result);
+      
+      // Find binary data start position (after length field)
+      const binaryStartInText = startIndex + startDelimiter.length + 6;
+      const binaryStartInBytes = new TextEncoder().encode(textData.substring(0, binaryStartInText)).length;
+      
+      // Extract binary data
+      const binaryData = fileBytes.slice(binaryStartInBytes, binaryStartInBytes + expectedLength);
+      
+      if (binaryData.length !== expectedLength) {
+        cpsErrorEl.textContent = `Binary data length mismatch. Expected: ${expectedLength}, Found: ${binaryData.length}`;
+        return;
+      }
+      
+             // Store binary data for download
+       currentCpsBinaryData = binaryData;
+       
+       // Format and display the data
+       const formattedHex = formatCpsDataAsHex(binaryData);
+       if (cpsOutputTextarea) {
+         cpsOutputTextarea.value = formattedHex;
+       }
+       
+       // Enable download button
+       if (cpsDownloadBtn) {
+         cpsDownloadBtn.disabled = false;
+       }
+       
+       cpsErrorEl.style.color = 'green';
+       cpsErrorEl.textContent = `Successfully extracted ${expectedLength} bytes of CPS data with ${formattedHex.split('Application').length - 1} applications.`;
+      
+    } catch (error) {
+      cpsErrorEl.textContent = `Error processing file: ${error.message}`;
+      console.error('CPS extraction error:', error);
+    }
+  };
+  
+  reader.onerror = function() {
+    cpsErrorEl.textContent = 'Error reading file.';
+  };
+  
+  reader.readAsArrayBuffer(file);
+});
+
+// Copy CPS data to Hex Manipulator
+cpsCopyToHexBtn?.addEventListener('click', function() {
+  if (!cpsOutputTextarea || !hexOutputTextarea) {
+    if (cpsErrorEl) {
+      cpsErrorEl.style.color = 'red';
+      cpsErrorEl.textContent = 'Error: Unable to access hex manipulator.';
+    }
+    return;
+  }
+  
+  if (!cpsOutputTextarea.value) {
+    if (cpsErrorEl) {
+      cpsErrorEl.style.color = 'red';
+      cpsErrorEl.textContent = 'No CPS data to copy. Please extract data first.';
+    }
+    return;
+  }
+  
+  // Copy the formatted data to hex manipulator
+  hexOutputTextarea.value = cpsOutputTextarea.value;
+  updateOffsetInfo();
+  
+  // Switch to hex manipulator tab
+  openTool(null, 'hex');
+  
+  if (cpsErrorEl) {
+    cpsErrorEl.style.color = 'green';
+    cpsErrorEl.textContent = 'CPS data copied to Hex Manipulator successfully!';
+  }
+});
+
+// Download binary CPS data
+cpsDownloadBtn?.addEventListener('click', function() {
+  if (!currentCpsBinaryData) {
+    if (cpsErrorEl) {
+      cpsErrorEl.style.color = 'red';
+      cpsErrorEl.textContent = 'No binary data available. Please extract CPS data first.';
+    }
+    return;
+  }
+  
+  try {
+    const blob = new Blob([currentCpsBinaryData], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cps_data.bin';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    if (cpsErrorEl) {
+      cpsErrorEl.style.color = 'green';
+      cpsErrorEl.textContent = 'Binary data downloaded successfully!';
+    }
+  } catch (error) {
+    if (cpsErrorEl) {
+      cpsErrorEl.style.color = 'red';
+      cpsErrorEl.textContent = `Download failed: ${error.message}`;
+    }
+  }
 });
 
 // RSA Tool Logic
