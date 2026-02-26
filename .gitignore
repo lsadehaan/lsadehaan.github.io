@@ -2,3 +2,17 @@ _site/
 .sass-cache/
 .jekyll-cache/
 .jekyll-metadata
+
+# Editor/tool temp files
+*.tmp.*
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py.tmp.*
+
+# Test data files
+*.cEF
+keysets.json

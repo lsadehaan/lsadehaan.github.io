@@ -1,74 +1,539 @@
-/* Tab container */
+/* ===== EMV Tools - Dark Theme Stylesheet ===== */
+
+/* Wider content for tool page */
+main.main-toolpage {
+  max-width: 1200px;
+}
+
+.page-content {
+  padding: 20px;
+}
+
+/* Page title */
+.page-content h1 {
+  color: var(--white-1);
+  margin-bottom: 0;
+}
+
+.page-content p {
+  line-height: 1.6;
+}
+
+/* ===== Tab Navigation ===== */
 .tab-container {
   width: 100%;
   margin-top: 20px;
 }
 
-/* Style the tab buttons */
 .tab-nav {
-  overflow: hidden;
-  border: 1px solid #ccc;
-  background-color: #f1f1f1;
-  margin-bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 2px solid cyan;
+  margin-bottom: 0;
 }
 
 .tab-button {
-  background-color: inherit;
-  float: left;
-  border: none;
+  background-color: var(--gray-3);
+  color: var(--white-2);
+  border: 1px solid var(--gray-1);
+  border-bottom: none;
   outline: none;
   cursor: pointer;
-  padding: 14px 16px;
-  transition: 0.3s;
-  font-size: 1em;
+  padding: 10px 18px;
+  transition: background-color 0.2s, color 0.2s;
+  font-size: 0.9em;
+  font-family: inherit;
+  border-radius: 6px 6px 0 0;
 }
 
-/* Change background color of buttons on hover */
 .tab-button:hover {
-  background-color: #ddd;
+  background-color: var(--gray-1);
+  color: var(--white-1);
 }
 
-/* Create an active/current tablink class */
 .tab-button.active {
-  background-color: #ccc;
+  background-color: var(--gray-2);
+  color: cyan;
+  border-color: var(--gray-1);
+  border-bottom: 2px solid var(--gray-2);
+  margin-bottom: -2px;
 }
 
-/* Style the tab content */
+/* Tab content */
 .tab-content {
-  display: none; /* Hidden by default */
-  padding: 12px 12px;
-  border: 1px solid #ccc;
+  display: none;
+  padding: 20px;
+  border: 1px solid var(--gray-1);
   border-top: none;
-  animation: fadeEffect 0.5s; /* Fading effect */
+  background-color: var(--gray-2);
+  border-radius: 0 0 6px 6px;
+  animation: fadeEffect 0.3s;
 }
 
 .tab-content h2 {
   margin-top: 0;
+  color: var(--white-1);
+  border-bottom: 1px solid var(--gray-1);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-/* Fade in tabs */
+.tab-content h3 {
+  color: var(--white-1);
+  margin-bottom: 8px;
+}
+
+.tab-content h4 {
+  color: var(--white-2);
+  margin-bottom: 8px;
+}
+
+.tab-content p {
+  color: var(--white-2);
+  margin-bottom: 12px;
+  font-size: 0.9em;
+}
+
 @keyframes fadeEffect {
-  from {opacity: 0;}
-  to {opacity: 1;}
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Wider content for tool page specifically */
-main.main-toolpage {
-  max-width: 1200px; /* Or your desired width, e.g., 90%, 100% */
-  /* margin: 0 auto; is already on main from blog.css */
+/* ===== Form Elements ===== */
+
+/* Form groups */
+.form-group {
+  margin-bottom: 12px;
 }
 
-.page-content {
-  /* max-width: 1200px; /* No longer strictly needed here if main is controlling */
-  /* margin-left: auto; */
-  /* margin-right: auto; */
-  /* The padding from the inline style in toolpage.html is still good */
+.form-group-lg {
+  margin-bottom: 16px;
 }
 
-/* Common styling for textareas in tools */
+/* Labels */
+.form-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--white-2);
+  font-size: 0.9em;
+}
+
+/* Textareas */
 .tool-textarea {
-  padding: 8px;
-  box-sizing: border-box; /* Ensures padding doesn't increase the overall width/height */
-  width: 100%; /* Maintain full width if previously set by inline styles */
-  font-family: monospace; /* Maintain monospace font if previously set */
-} 
+  padding: 8px 10px;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+  background-color: var(--gray-4);
+  color: var(--white-1);
+  border: 1px solid var(--gray-1);
+  border-radius: 4px;
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+
+.tool-textarea:focus {
+  border-color: cyan;
+  outline: none;
+}
+
+.tool-textarea::placeholder {
+  color: var(--white-2);
+  opacity: 0.5;
+}
+
+.tool-textarea-readonly {
+  background-color: var(--gray-3);
+  color: var(--white-2);
+}
+
+/* Input fields */
+input[type="text"].tool-textarea,
+input:not([type]).tool-textarea {
+  resize: none;
+}
+
+input[type="file"] {
+  color: var(--white-2);
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
+input[type="file"]::file-selector-button {
+  background-color: var(--gray-3);
+  color: var(--white-1);
+  border: 1px solid var(--gray-1);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background-color: var(--gray-1);
+}
+
+/* Select elements */
+.tool-select,
+.tool-select-md,
+.parity-select {
+  padding: 6px 8px;
+  box-sizing: border-box;
+  background-color: var(--gray-4);
+  color: var(--white-1);
+  border: 1px solid var(--gray-1);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.tool-select {
+  width: 100%;
+}
+
+.tool-select-md {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+
+.tool-select:focus,
+.tool-select-md:focus,
+.parity-select:focus {
+  border-color: cyan;
+  outline: none;
+}
+
+/* ===== Buttons ===== */
+.tool-btn {
+  padding: 8px 16px;
+  cursor: pointer;
+  background-color: var(--gray-3);
+  color: var(--white-1);
+  border: 1px solid var(--gray-1);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9em;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.tool-btn:hover {
+  background-color: var(--gray-1);
+  border-color: var(--white-2);
+}
+
+.tool-btn:active {
+  background-color: var(--gray-4);
+}
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-btn-primary {
+  padding: 8px 16px;
+  background-color: #0e7490;
+  color: white;
+  border: 1px solid #0e7490;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+}
+
+.tool-btn-primary:hover {
+  background-color: #0891b2;
+  border-color: #0891b2;
+}
+
+.tool-btn-primary:active {
+  background-color: #0c4a5e;
+}
+
+.tool-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-btn-spaced {
+  margin-right: 10px;
+}
+
+.tool-btn-top {
+  margin-top: 5px;
+  margin-bottom: 15px;
+}
+
+/* Button row */
+.button-row {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== Result Sections ===== */
+.result-section {
+  margin-top: 16px;
+}
+
+/* ===== Specialized Output Areas ===== */
+
+/* Hex output */
+.hex-output {
+  min-height: 200px;
+  white-space: pre;
+  overflow-wrap: break-word;
+}
+
+/* CPS output */
+.cps-output {
+  min-height: 400px;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+/* ELO output */
+.elo-output {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+/* ===== Info & Status Displays ===== */
+.info-display {
+  margin-top: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+  color: var(--white-2);
+}
+
+.info-display-sm {
+  margin-top: 5px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+  color: var(--white-2);
+}
+
+/* Error messages */
+.error-message {
+  color: #ef4444;
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+
+/* ===== Config Panel ===== */
+.config-panel {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--gray-1);
+  background-color: var(--gray-3);
+  border-radius: 6px;
+}
+
+.config-panel h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--white-1);
+}
+
+/* ===== Parity Controls ===== */
+.parity-label {
+  color: var(--white-2);
+  font-size: 0.9em;
+}
+
+/* ===== Input Width Variants ===== */
+.input-sm {
+  width: 100px;
+  padding: 5px;
+}
+
+.input-md {
+  width: 150px;
+  padding: 5px;
+}
+
+.input-lg {
+  width: 120px;
+}
+
+.input-full {
+  width: 100%;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+/* ===== Summary Tables ===== */
+.summary-table {
+  width: 100%;
+  margin-bottom: 15px;
+  border-collapse: collapse;
+}
+
+.summary-table th,
+.summary-table td {
+  border: 1px solid var(--gray-1);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.9em;
+}
+
+.summary-table th {
+  background-color: var(--gray-3);
+  color: var(--white-1);
+  width: 30%;
+}
+
+.summary-table td {
+  color: var(--white-2);
+  background-color: var(--gray-4);
+}
+
+.summary-table td:first-child {
+  color: var(--white-1);
+  font-weight: bold;
+  background-color: var(--gray-3);
+}
+
+/* Keyset report table - override defaults for multi-column layout */
+#keysetReportTable th {
+  width: auto;
+  white-space: nowrap;
+}
+
+#keysetReportTable td {
+  font-size: 0.85em;
+  font-family: "JetBrains Mono", monospace;
+}
+
+#keysetReportTable td:first-child {
+  font-weight: normal;
+  background-color: var(--gray-4);
+}
+
+#keysetReportTable {
+  display: block;
+  overflow-x: auto;
+}
+
+#keysetReportTable thead,
+#keysetReportTable tbody,
+#keysetReportTable tr {
+  display: table;
+  width: 100%;
+  table-layout: auto;
+}
+
+/* ===== EMV Tool Sub-Sections ===== */
+.emv-tool-section {
+  display: none;
+}
+
+.emv-tool-section h3 {
+  margin-top: 0;
+}
+
+/* ===== Certificate Parsing Table ===== */
+#issuerCertParsedTable td:first-child {
+  font-weight: bold;
+  width: 25%;
+}
+
+#issuerCertParsedTable td:last-child {
+  font-family: "JetBrains Mono", monospace;
+  word-break: break-all;
+  font-size: 0.85em;
+}
+
+/* ===== Hash Verification Result ===== */
+#hashVerificationResult {
+  padding: 12px;
+  background-color: var(--gray-3);
+  border: 1px solid var(--gray-1);
+  border-radius: 4px;
+  word-break: break-all;
+  font-size: 0.85em;
+  color: var(--white-2);
+}
+
+/* ===== Checkbox Styling ===== */
+.form-group input[type="checkbox"] {
+  margin-right: 8px;
+  transform: scale(1.2);
+  accent-color: cyan;
+}
+
+.form-group label:has(input[type="checkbox"]) {
+  cursor: pointer;
+  user-select: none;
+  color: var(--white-2);
+}
+
+/* ===== Responsive Design ===== */
+@media screen and (max-width: 768px) {
+  main.main-toolpage {
+    max-width: 100%;
+  }
+
+  .page-content {
+    padding: 10px;
+  }
+
+  .tab-button {
+    padding: 8px 12px;
+    font-size: 0.8em;
+  }
+
+  .tab-content {
+    padding: 14px;
+  }
+
+  .button-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tool-btn-spaced {
+    margin-right: 0;
+    margin-bottom: 8px;
+  }
+
+  .parity-label {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .summary-table td:first-child {
+    width: auto;
+  }
+
+  #issuerCertParsedTable td:first-child {
+    width: auto;
+  }
+
+  .tool-select-md {
+    max-width: 100%;
+  }
+}
+
+@media screen and (max-width: 550px) {
+  .tab-nav {
+    gap: 1px;
+  }
+
+  .tab-button {
+    padding: 6px 8px;
+    font-size: 0.75em;
+  }
+
+  .tab-content {
+    padding: 10px;
+  }
+}

@@ -8,6 +8,7 @@
   --white-1: #eeeeee;
   --white-2: #a9abb3;
 }
+
 #category-modal-bg {
   position: fixed;
   top: 0;
@@ -106,4 +107,14 @@ hr {
 .site-nav a:hover {
   color: var(--white-1);
   border-bottom: 1px solid var(--white-1);
+}
+
+/* Footer */
+footer {
+  margin-top: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--gray-1);
+  color: var(--white-2);
+  font-size: 0.8rem;
+  opacity: 0.6;
 }
