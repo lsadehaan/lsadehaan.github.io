@@ -150,7 +150,7 @@ permalink: /emvtools/
     <label for="emvCertSelect" class="form-label">Select Certificate Tool:</label>
     <select id="emvCertSelect" class="tool-select-md">
       <option value="parseIssuerCert" selected>Parse Issuer Certificate</option>
-      <option value="validateIssuerCert">Validate Issuer Certificate</option>
+      <option value="validateIssuerCert">Validate Certificate Chain (CA → Issuer → ICC)</option>
       <option value="validateCsrResponse">Validate CSR Response</option>
       <option value="parseIccCert">Parse ICC Certificate</option>
       <option value="keysetValidation">Keyset Validation</option>
@@ -207,8 +207,8 @@ permalink: /emvtools/
     </div>
 
     <div id="validateIssuerCertTool" class="emv-tool-section">
-      <h3>Validate Issuer Certificate</h3>
-      <p>Validate an Issuer Public Key Certificate by performing RSA recovery using the CA Public Key.</p>
+      <h3>Validate Certificate Chain (CA → Issuer → ICC)</h3>
+      <p>Validate the full EMV certificate chain. The Issuer Certificate is recovered using the CA Public Key (auto-detected by certificate size). If an ICC Certificate is also provided, it is then recovered using the Issuer Public Key extracted from the validated Issuer Certificate. Leave the ICC fields blank to validate the Issuer Certificate only.</p>
       <div class="form-group">
         <label><input type="checkbox" id="autoDetectCaKey" checked /> Auto-detect CA Public Key</label>
       </div>
@@ -246,10 +246,30 @@ permalink: /emvtools/
         <label for="issuerExp" class="form-label">Issuer Public Key Exponent (HEX):</label>
         <input id="issuerExp" class="tool-textarea input-lg" value="03" />
       </div>
-      <button id="validateIssuerCertBtn" type="button" class="tool-btn-primary">Validate Certificate</button>
+
+      <h4 style="margin-top:18px;">ICC Certificate (optional)</h4>
+      <p style="margin-top:0; font-size: 0.9em; opacity: 0.85;">Provide these to chain-validate the ICC Certificate using the Issuer Public Key recovered above.</p>
+      <div class="form-group">
+        <label for="iccCertChain" class="form-label">ICC Certificate (Tag 9F46, HEX):</label>
+        <textarea id="iccCertChain" class="tool-textarea" rows="4" placeholder="Optional - leave blank to validate Issuer Certificate only"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="iccRemainderChain" class="form-label">ICC Public Key Remainder (Tag 9F48, HEX, optional):</label>
+        <textarea id="iccRemainderChain" class="tool-textarea" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="iccExpChain" class="form-label">ICC Public Key Exponent (Tag 9F47, HEX):</label>
+        <input id="iccExpChain" class="tool-textarea input-lg" value="03" />
+      </div>
+      <div class="form-group">
+        <label for="iccStaticDataChain" class="form-label">Static Data to be Authenticated (HEX, optional):</label>
+        <textarea id="iccStaticDataChain" class="tool-textarea" rows="2" placeholder="Required for full ICC hash verification"></textarea>
+      </div>
+
+      <button id="validateIssuerCertBtn" type="button" class="tool-btn-primary">Validate Chain</button>
       <div class="form-group result-section">
         <label for="issuerCertResults" class="form-label">Results:</label>
-        <textarea id="issuerCertResults" class="tool-textarea tool-textarea-readonly" rows="12" readonly></textarea>
+        <textarea id="issuerCertResults" class="tool-textarea tool-textarea-readonly" rows="18" readonly></textarea>
       </div>
     </div>
 
@@ -2108,7 +2128,7 @@ function tryRecoverCert(certHex, caModulus, caExp) {
   return null;
 }
 
-validateIssuerCertBtn?.addEventListener('click', function() {
+validateIssuerCertBtn?.addEventListener('click', async function() {
   const resultsEl = document.getElementById('issuerCertResults');
   const detectedEl = document.getElementById('detectedCaKey');
   const remainderEl = document.getElementById('issuerRemainder');
@@ -2117,6 +2137,10 @@ validateIssuerCertBtn?.addEventListener('click', function() {
   const autoDetectEl = document.getElementById('autoDetectCaKey');
   const manualExpEl = document.getElementById('manualCaExp');
   const manualModEl = document.getElementById('manualCaModulus');
+  const iccCertEl = document.getElementById('iccCertChain');
+  const iccRemainderEl = document.getElementById('iccRemainderChain');
+  const iccExpChainEl = document.getElementById('iccExpChain');
+  const iccStaticEl = document.getElementById('iccStaticDataChain');
 
   if (resultsEl) resultsEl.value = '';
   if (detectedEl) detectedEl.value = '';
@@ -2267,27 +2291,212 @@ validateIssuerCertBtn?.addEventListener('click', function() {
   if (issuerExpHex) hashDataArr.push(...emvHexToBytes(issuerExpHex));
   let hashData = new Uint8Array(hashDataArr);
 
-  emvCalcSHA1(hashData).then(calcHashBytes => {
-    if (!calcHashBytes) {
-      log('Error: SHA-1 calculation failed (WebCrypto not available).');
+  const issuerCalcHashBytes = await emvCalcSHA1(hashData);
+  if (!issuerCalcHashBytes) {
+    log('Error: SHA-1 calculation failed (WebCrypto not available).');
+    return;
+  }
+  const issuerCalcHash = emvBytesToHex(issuerCalcHashBytes);
+  const issuerCertHash = emvBytesToHex(hashResult);
+
+  log(`Calculated SHA-1: ${issuerCalcHash}`);
+  log(`Certificate Hash: ${issuerCertHash}`);
+  log('');
+
+  let issuerHashOk = false;
+  if (issuerCalcHash === issuerCertHash) {
+    log('*** ISSUER HASH MATCHES - Issuer Certificate is VALID! ***');
+    issuerHashOk = true;
+  } else {
+    log('*** ISSUER HASH DOES NOT MATCH ***');
+    if (!issuerExpHex) {
+      log('Note: Issuer Public Key Exponent not provided. Try adding it (usually 03).');
+    }
+  }
+
+  // ===== ICC Certificate Chain Validation (optional) =====
+  const iccCertHex = iccCertEl?.value.trim().replace(/\s+/g, '').toUpperCase() || '';
+  if (!iccCertHex) {
+    return; // Issuer-only validation, done.
+  }
+
+  log('');
+  log('========================================');
+  log('=== ICC Certificate Chain Validation ===');
+  log('========================================');
+  log('');
+
+  if (!issuerHashOk) {
+    log('Warning: Issuer Certificate hash did not match - ICC validation may be unreliable.');
+    log('');
+  }
+
+  if (!/^[0-9A-F]+$/.test(iccCertHex)) {
+    log('Error: ICC Certificate must be valid HEX.');
+    return;
+  }
+
+  const iccRemainderHex = iccRemainderEl?.value.trim().replace(/\s+/g, '').toUpperCase() || '';
+  const iccExpHex = iccExpChainEl?.value.trim().replace(/\s+/g, '').toUpperCase() || '';
+  const iccStaticHex = iccStaticEl?.value.trim().replace(/\s+/g, '').toUpperCase() || '';
+
+  // Reconstruct full Issuer PK modulus from pubKeyOrLeft (stripping any 0xBB padding) + issuer remainder.
+  // pubKeyOrLeft has length N_CA - 36 (where N_CA is CA modulus size). The actual issuer modulus length
+  // is pubKeyLen bytes total; if pubKeyLen <= pubKeyOrLeft.length, the modulus is the leftmost
+  // pubKeyLen bytes (rest are 0xBB padding). Otherwise modulus = pubKeyOrLeft || issuerRemainder.
+  let issuerModulusBytes;
+  if (pubKeyLen <= pubKeyOrLeft.length) {
+    issuerModulusBytes = pubKeyOrLeft.slice(0, pubKeyLen);
+  } else {
+    const remBytes = remainderHex ? emvHexToBytes(remainderHex) : new Uint8Array(0);
+    const combined = new Uint8Array(pubKeyOrLeft.length + remBytes.length);
+    combined.set(pubKeyOrLeft, 0);
+    combined.set(remBytes, pubKeyOrLeft.length);
+    if (combined.length < pubKeyLen) {
+      log(`Error: Reconstructed Issuer Modulus is ${combined.length} bytes, expected ${pubKeyLen}. Provide the Issuer Public Key Remainder (Tag 92).`);
       return;
     }
-    const calcHash = emvBytesToHex(calcHashBytes);
-    const certHash = emvBytesToHex(hashResult);
+    issuerModulusBytes = combined.slice(0, pubKeyLen);
+  }
 
-    log(`Calculated SHA-1: ${calcHash}`);
-    log(`Certificate Hash: ${certHash}`);
-    log('');
+  log(`Issuer Public Key (${issuerModulusBytes.length} bytes): ${emvBytesToHex(issuerModulusBytes)}`);
+  log(`Issuer Public Key Exponent: ${issuerExpHex || '(not provided)'}`);
+  log('');
 
-    if (calcHash === certHash) {
-      log('*** HASH MATCHES - Certificate is VALID! ***');
-    } else {
-      log('*** HASH DOES NOT MATCH ***');
-      if (!issuerExpHex) {
-        log('Note: Issuer Public Key Exponent not provided. Try adding it (usually 03).');
+  if (!issuerExpHex) {
+    log('Error: Issuer Public Key Exponent is required to recover the ICC Certificate.');
+    return;
+  }
+
+  // ICC certificate must be the same length as the Issuer modulus
+  const iccCertBytes = iccCertHex.length / 2;
+  log(`ICC Certificate size: ${iccCertBytes} bytes (${iccCertBytes * 8} bits)`);
+  if (iccCertBytes !== issuerModulusBytes.length) {
+    log(`Warning: ICC Certificate length (${iccCertBytes}) does not match Issuer Modulus length (${issuerModulusBytes.length}). RSA recovery will likely fail.`);
+  }
+
+  // RSA recover: ICC^IssuerExp mod IssuerMod
+  const issuerModulusHex = emvBytesToHex(issuerModulusBytes);
+  let recoveredIccHex = tryRecoverCert(iccCertHex, issuerModulusHex, issuerExpHex);
+  if (!recoveredIccHex) {
+    log('Error: Could not recover ICC Certificate. Header/trailer (6A...BC) check failed.');
+    log('Possible causes:');
+    log('  - Incorrect Issuer Public Key Exponent');
+    log('  - Missing Issuer Public Key Remainder (Tag 92)');
+    log('  - ICC Certificate not signed by this Issuer key');
+    return;
+  }
+
+  log('');
+  log('Recovered ICC Certificate data:');
+  log(recoveredIccHex);
+  log('');
+
+  // Parse recovered ICC certificate
+  const iccBytes = emvHexToBytes(recoveredIccHex);
+  let iPos = 0;
+  const iccGet = (n) => { const o = iccBytes.slice(iPos, iPos + n); iPos += n; return o; };
+
+  const iccHeader = iccGet(1)[0];
+  const iccCertFormat = iccGet(1)[0];
+  const iccPan = iccGet(10);
+  const iccExpDate = iccGet(2);
+  const iccSerial = iccGet(3);
+  const iccHashAlg = iccGet(1)[0];
+  const iccPkAlg = iccGet(1)[0];
+  const iccPkLen = iccGet(1)[0];
+  const iccPkExpLen = iccGet(1)[0];
+  const iccPkOrLeft = iccGet(iccBytes.length - iPos - 21);
+  const iccHashResult = iccGet(20);
+  const iccTrailer = iccGet(1)[0];
+
+  log('=== Parsed ICC Certificate Fields ===');
+  log(`Header: ${iccHeader.toString(16).toUpperCase().padStart(2, '0')} (${iccHeader === 0x6A ? 'Valid' : 'INVALID'})`);
+  log(`Format: ${iccCertFormat.toString(16).toUpperCase().padStart(2, '0')} (${iccCertFormat === 0x04 ? 'ICC PK Cert' : iccCertFormat === 0x02 ? 'Issuer PK Cert - WRONG TYPE' : 'Unknown'})`);
+  const panHex = emvBytesToHex(iccPan);
+  log(`PAN: ${panHex} (${panHex.replace(/F+$/i, '') || '(empty)'})`);
+  const iccExpHexStr = emvBytesToHex(iccExpDate);
+  log(`Expiration: ${iccExpHexStr} (${iccExpHexStr.substring(0,2)}/20${iccExpHexStr.substring(2,4)})`);
+  log(`Serial: ${emvBytesToHex(iccSerial)}`);
+  log(`Hash Algorithm: ${iccHashAlg === 0x01 ? 'SHA-1' : 'Unknown'}`);
+  log(`PK Algorithm: ${iccPkAlg === 0x01 ? 'RSA' : 'Unknown'}`);
+  log(`PK Length: ${iccPkLen} bytes`);
+  log(`PK Exponent Length: ${iccPkExpLen} bytes`);
+  log(`Trailer: ${iccTrailer.toString(16).toUpperCase().padStart(2, '0')} (${iccTrailer === 0xBC ? 'Valid' : 'INVALID'})`);
+  log('');
+
+  // Reconstruct ICC Public Key (strip BB padding then append remainder)
+  let iccActualPk = [];
+  for (let i = 0; i < iccPkOrLeft.length; i++) {
+    if (iccPkOrLeft[i] === 0xBB) {
+      let allBB = true;
+      for (let j = i; j < iccPkOrLeft.length; j++) {
+        if (iccPkOrLeft[j] !== 0xBB) { allBB = false; break; }
       }
+      if (allBB) break;
     }
-  });
+    iccActualPk.push(iccPkOrLeft[i]);
+  }
+  const paddingLen = iccPkOrLeft.length - iccActualPk.length;
+
+  let iccFullPkBytes = [...iccActualPk];
+  if (iccRemainderHex) {
+    iccFullPkBytes = iccFullPkBytes.concat(Array.from(emvHexToBytes(iccRemainderHex)));
+  }
+  log(`ICC Public Key (${iccFullPkBytes.length} bytes): ${emvBytesToHex(new Uint8Array(iccFullPkBytes))}`);
+  if (paddingLen > 0) log(`  (${paddingLen} bytes of 0xBB padding stripped from leftmost field)`);
+  if (iccFullPkBytes.length !== iccPkLen) {
+    log(`  Warning: Reconstructed key length (${iccFullPkBytes.length}) does not match expected (${iccPkLen} bytes)`);
+    if (!iccRemainderHex && iccFullPkBytes.length < iccPkLen) {
+      log('  Provide the ICC Public Key Remainder (Tag 9F48) to complete the modulus.');
+    }
+  }
+  log('');
+
+  // ICC Hash verification
+  log('=== ICC Hash Verification ===');
+  let iccHashArr = [
+    iccCertFormat,
+    ...iccPan,
+    ...iccExpDate,
+    ...iccSerial,
+    iccHashAlg,
+    iccPkAlg,
+    iccPkLen,
+    iccPkExpLen,
+    ...iccPkOrLeft  // includes BB padding per EMV Book 2 Table 14
+  ];
+  if (iccRemainderHex) iccHashArr.push(...emvHexToBytes(iccRemainderHex));
+  if (iccExpHex) iccHashArr.push(...emvHexToBytes(iccExpHex));
+  if (iccStaticHex) iccHashArr.push(...emvHexToBytes(iccStaticHex));
+
+  const iccCalcHashBytes = await emvCalcSHA1(new Uint8Array(iccHashArr));
+  if (!iccCalcHashBytes) {
+    log('Error: SHA-1 calculation failed.');
+    return;
+  }
+  const iccCalcHash = emvBytesToHex(iccCalcHashBytes);
+  const iccCertHashStr = emvBytesToHex(iccHashResult);
+  log(`Calculated SHA-1: ${iccCalcHash}`);
+  log(`Certificate Hash: ${iccCertHashStr}`);
+  log('');
+
+  if (iccCalcHash === iccCertHashStr) {
+    log('*** ICC HASH MATCHES - ICC Certificate is VALID! ***');
+    log('');
+    log('*** FULL CHAIN VALIDATED: CA -> Issuer -> ICC ***');
+  } else {
+    log('*** ICC HASH DOES NOT MATCH ***');
+    if (!iccStaticHex) {
+      log('Note: Static Data to be Authenticated not provided. The ICC hash includes this static data per EMV Book 2.');
+    }
+    if (!iccExpHex) {
+      log('Note: ICC Public Key Exponent not provided.');
+    }
+    if (!iccRemainderHex && iccActualPk.length < iccPkLen) {
+      log('Note: ICC Public Key Remainder (Tag 9F48) not provided.');
+    }
+  }
 });
 
 // CSR Response Validation logic
