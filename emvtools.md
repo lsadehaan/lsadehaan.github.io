@@ -152,7 +152,7 @@ permalink: /emvtools/
       <option value="parseIssuerCert" selected>Parse Issuer Certificate</option>
       <option value="validateIssuerCert">Validate Issuer Certificate</option>
       <option value="validateCsrResponse">Validate CSR Response</option>
-      <option value="parseIccCert">Parse ICC Certificate (TBD)</option>
+      <option value="parseIccCert">Parse ICC Certificate</option>
       <option value="keysetValidation">Keyset Validation</option>
     </select>
 
@@ -306,8 +306,58 @@ permalink: /emvtools/
     </div>
 
     <div id="parseIccCertTool" class="emv-tool-section">
-      <h3>Parse ICC Certificate (TBD)</h3>
-      <p>Coming soon...</p>
+      <h3>Parse ICC Certificate</h3>
+      <p>Parse an already "opened" (RSA-decrypted) ICC Public Key Certificate (Tag 9F46 recovered with the Issuer Public Key). Paste the recovered certificate data including header (6A) and trailer (BC).</p>
+
+      <div class="form-group">
+        <label for="openedIccCert" class="form-label">Opened ICC Certificate Data (HEX):</label>
+        <textarea id="openedIccCert" rows="5" class="tool-textarea" placeholder="6A04...BC"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="iccPkRemainder" class="form-label">ICC Public Key Remainder (Tag 9F48, HEX, optional):</label>
+        <textarea id="iccPkRemainder" rows="2" class="tool-textarea" placeholder="Optional - if ICC public key exceeds certificate capacity"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="iccPkExponent" class="form-label">ICC Public Key Exponent (Tag 9F47, HEX, optional):</label>
+        <input id="iccPkExponent" class="tool-textarea input-lg" value="03" />
+      </div>
+
+      <div class="form-group">
+        <label for="iccStaticData" class="form-label">Static Data to be Authenticated (HEX, optional):</label>
+        <textarea id="iccStaticData" rows="3" class="tool-textarea" placeholder="Concatenation of static data from AFL records (and SDA Tag List data if present). Required for full hash verification."></textarea>
+      </div>
+
+      <button id="parseIccCertBtn" type="button" class="tool-btn-primary">Parse Certificate</button>
+
+      <div class="result-section">
+        <h4>Parsed Certificate Fields:</h4>
+        <table id="iccCertParsedTable" class="summary-table">
+          <tbody>
+            <tr><td>Header</td><td id="iccParsedHeader">-</td></tr>
+            <tr><td>Certificate Format</td><td id="iccParsedCertFormat">-</td></tr>
+            <tr><td>Application PAN</td><td id="iccParsedPan">-</td></tr>
+            <tr><td>Certificate Expiration (MMYY)</td><td id="iccParsedExpDate">-</td></tr>
+            <tr><td>Certificate Serial Number</td><td id="iccParsedSerial">-</td></tr>
+            <tr><td>Hash Algorithm</td><td id="iccParsedHashAlg">-</td></tr>
+            <tr><td>ICC PK Algorithm</td><td id="iccParsedPkAlg">-</td></tr>
+            <tr><td>ICC PK Length</td><td id="iccParsedPkLen">-</td></tr>
+            <tr><td>ICC PK Exponent Length</td><td id="iccParsedExpLen">-</td></tr>
+            <tr><td>ICC Public Key (from cert)</td><td id="iccParsedPkData">-</td></tr>
+            <tr><td>Padding</td><td id="iccParsedPadding">-</td></tr>
+            <tr><td>Hash Result (from cert)</td><td id="iccParsedHash">-</td></tr>
+            <tr><td>Trailer</td><td id="iccParsedTrailer">-</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Reconstructed ICC Public Key:</h4>
+        <textarea id="iccReconstructedPk" rows="3" class="tool-textarea tool-textarea-readonly" readonly></textarea>
+
+        <h4>Hash Verification:</h4>
+        <div id="iccHashVerificationResult" class="info-display"></div>
+      </div>
+      <div id="parseIccCertError" class="error-message"></div>
     </div>
 
     <div id="keysetValidationTool" class="emv-tool-section">
@@ -1702,6 +1752,287 @@ parseIssuerCertBtn?.addEventListener('click', async function() {
   } catch (error) {
     parseIssuerCertErrorEl.textContent = `Error parsing certificate: ${error.message}`;
     console.error('Parse Issuer Certificate Error:', error);
+  }
+});
+
+// Parse ICC Certificate logic
+const parseIccCertBtn = document.getElementById('parseIccCertBtn');
+const openedIccCertEl = document.getElementById('openedIccCert');
+const iccPkRemainderEl = document.getElementById('iccPkRemainder');
+const iccPkExponentEl = document.getElementById('iccPkExponent');
+const iccStaticDataEl = document.getElementById('iccStaticData');
+const parseIccCertErrorEl = document.getElementById('parseIccCertError');
+
+const iccParsedFields = {
+  header: document.getElementById('iccParsedHeader'),
+  certFormat: document.getElementById('iccParsedCertFormat'),
+  pan: document.getElementById('iccParsedPan'),
+  expDate: document.getElementById('iccParsedExpDate'),
+  serial: document.getElementById('iccParsedSerial'),
+  hashAlg: document.getElementById('iccParsedHashAlg'),
+  pkAlg: document.getElementById('iccParsedPkAlg'),
+  pkLen: document.getElementById('iccParsedPkLen'),
+  expLen: document.getElementById('iccParsedExpLen'),
+  pkData: document.getElementById('iccParsedPkData'),
+  padding: document.getElementById('iccParsedPadding'),
+  hash: document.getElementById('iccParsedHash'),
+  trailer: document.getElementById('iccParsedTrailer')
+};
+const iccReconstructedPkEl = document.getElementById('iccReconstructedPk');
+const iccHashVerificationResultEl = document.getElementById('iccHashVerificationResult');
+
+function resetIccParsedFields() {
+  for (const key in iccParsedFields) {
+    if (iccParsedFields[key]) iccParsedFields[key].textContent = '-';
+  }
+  if (iccReconstructedPkEl) iccReconstructedPkEl.value = '';
+  if (iccHashVerificationResultEl) {
+    iccHashVerificationResultEl.textContent = '';
+    iccHashVerificationResultEl.style.color = '';
+  }
+}
+
+parseIccCertBtn?.addEventListener('click', async function() {
+  resetIccParsedFields();
+  if (parseIccCertErrorEl) {
+    parseIccCertErrorEl.textContent = '';
+    parseIccCertErrorEl.style.color = '#ef4444';
+  }
+
+  const certHex = openedIccCertEl?.value.trim().replace(/\s+/g, '') || '';
+  const remainderHex = iccPkRemainderEl?.value.trim().replace(/\s+/g, '') || '';
+  const exponentHex = iccPkExponentEl?.value.trim().replace(/\s+/g, '') || '';
+  const staticDataHex = iccStaticDataEl?.value.trim().replace(/\s+/g, '') || '';
+
+  if (!certHex) {
+    parseIccCertErrorEl.textContent = 'Please enter the opened ICC certificate data.';
+    return;
+  }
+
+  if (!/^[0-9a-fA-F]+$/.test(certHex)) {
+    parseIccCertErrorEl.textContent = 'Certificate data must be valid HEX.';
+    return;
+  }
+
+  // Minimum: header(1) + format(1) + PAN(10) + exp(2) + serial(3) + hashAlg(1) + pkAlg(1) + pkLen(1) + expLen(1) + hash(20) + trailer(1) = 42 bytes
+  if (certHex.length < 84) {
+    parseIccCertErrorEl.textContent = 'ICC Certificate data is too short (expected at least 42 bytes).';
+    return;
+  }
+
+  try {
+    const certBytes = emvHexToBytes(certHex);
+    let pos = 0;
+
+    function getField(len) {
+      const out = certBytes.slice(pos, pos + len);
+      pos += len;
+      return out;
+    }
+
+    // Header (1 byte) - expected 0x6A
+    const header = getField(1)[0];
+    if (iccParsedFields.header) {
+      iccParsedFields.header.textContent = header.toString(16).padStart(2, '0').toUpperCase()
+        + (header === 0x6A ? ' (Valid)' : ' (INVALID - expected 6A)');
+    }
+
+    // Certificate Format (1 byte) - expected 0x04 for ICC
+    const certFormat = getField(1)[0];
+    if (iccParsedFields.certFormat) {
+      let formatDesc = '';
+      if (certFormat === 0x04) formatDesc = ' (ICC Public Key Certificate)';
+      else if (certFormat === 0x02) formatDesc = ' (Issuer Public Key Certificate - WRONG TYPE)';
+      else formatDesc = ' (Unknown)';
+      iccParsedFields.certFormat.textContent = certFormat.toString(16).padStart(2, '0').toUpperCase() + formatDesc;
+    }
+
+    // Application PAN (10 bytes, padded with 0xFF on the right)
+    const panBytes = getField(10);
+    if (iccParsedFields.pan) {
+      const panHex = emvBytesToHex(panBytes);
+      // Strip trailing F nibbles for display
+      const trimmed = panHex.replace(/F+$/i, '');
+      iccParsedFields.pan.textContent = `${panHex} (PAN: ${trimmed || '(empty)'})`;
+    }
+
+    // Certificate Expiration Date (2 bytes - MMYY)
+    const expDateBytes = getField(2);
+    if (iccParsedFields.expDate) {
+      const expHex = emvBytesToHex(expDateBytes);
+      const mm = expHex.substring(0, 2);
+      const yy = expHex.substring(2, 4);
+      iccParsedFields.expDate.textContent = `${expHex} (${mm}/20${yy})`;
+    }
+
+    // Certificate Serial Number (3 bytes)
+    const serial = getField(3);
+    if (iccParsedFields.serial) {
+      iccParsedFields.serial.textContent = emvBytesToHex(serial);
+    }
+
+    // Hash Algorithm Indicator (1 byte) - expected 0x01 (SHA-1)
+    const hashAlgInd = getField(1)[0];
+    if (iccParsedFields.hashAlg) {
+      const desc = hashAlgInd === 0x01 ? ' (SHA-1)' : ' (Unknown)';
+      iccParsedFields.hashAlg.textContent = hashAlgInd.toString(16).padStart(2, '0').toUpperCase() + desc;
+    }
+
+    // ICC Public Key Algorithm Indicator (1 byte) - expected 0x01 (RSA)
+    const pkAlgInd = getField(1)[0];
+    if (iccParsedFields.pkAlg) {
+      const desc = pkAlgInd === 0x01 ? ' (RSA)' : ' (Unknown)';
+      iccParsedFields.pkAlg.textContent = pkAlgInd.toString(16).padStart(2, '0').toUpperCase() + desc;
+    }
+
+    // ICC Public Key Length (1 byte)
+    const pkLen = getField(1)[0];
+    if (iccParsedFields.pkLen) {
+      iccParsedFields.pkLen.textContent = `${pkLen} bytes (0x${pkLen.toString(16).toUpperCase()})`;
+    }
+
+    // ICC Public Key Exponent Length (1 byte)
+    const expLenVal = getField(1)[0];
+    if (iccParsedFields.expLen) {
+      iccParsedFields.expLen.textContent = `${expLenVal} bytes`;
+    }
+
+    // Remaining bytes for "ICC PK or Leftmost Digits" field = total - pos - hash(20) - trailer(1)
+    const pkDataLen = certBytes.length - pos - 21;
+    if (pkDataLen < 0) {
+      throw new Error(`Certificate too short: cannot fit hash(20) + trailer(1) after parsed fields`);
+    }
+
+    const pkData = getField(pkDataLen);
+
+    // Separate actual key data from BB padding (when ICC modulus is shorter than Issuer modulus,
+    // the extra bytes are filled with 0xBB)
+    let actualPkData = [];
+    let paddingBytes = [];
+    let foundPadding = false;
+
+    for (let i = 0; i < pkData.length; i++) {
+      if (!foundPadding && pkData[i] === 0xBB) {
+        let allBB = true;
+        for (let j = i; j < pkData.length; j++) {
+          if (pkData[j] !== 0xBB) { allBB = false; break; }
+        }
+        if (allBB) {
+          foundPadding = true;
+          paddingBytes = pkData.slice(i);
+          break;
+        }
+      }
+      actualPkData.push(pkData[i]);
+    }
+
+    if (iccParsedFields.pkData) {
+      const pkDataHex = emvBytesToHex(new Uint8Array(actualPkData));
+      if (pkDataHex.length > 80) {
+        iccParsedFields.pkData.textContent = pkDataHex.substring(0, 40) + '...' + pkDataHex.substring(pkDataHex.length - 40) + ` (${actualPkData.length} bytes)`;
+      } else {
+        iccParsedFields.pkData.textContent = pkDataHex + ` (${actualPkData.length} bytes)`;
+      }
+    }
+
+    if (iccParsedFields.padding) {
+      iccParsedFields.padding.textContent = paddingBytes.length > 0
+        ? `${paddingBytes.length} bytes of BB padding`
+        : 'None';
+    }
+
+    // Hash Result (20 bytes)
+    const hashResult = getField(20);
+    if (iccParsedFields.hash) {
+      iccParsedFields.hash.textContent = emvBytesToHex(hashResult);
+    }
+
+    // Trailer (1 byte) - expected 0xBC
+    const trailer = getField(1)[0];
+    if (iccParsedFields.trailer) {
+      iccParsedFields.trailer.textContent = trailer.toString(16).padStart(2, '0').toUpperCase()
+        + (trailer === 0xBC ? ' (Valid)' : ' (INVALID - expected BC)');
+    }
+
+    // Reconstruct full ICC Public Key
+    let fullPkBytes = [...actualPkData];
+    if (remainderHex) {
+      fullPkBytes = fullPkBytes.concat(Array.from(emvHexToBytes(remainderHex)));
+    }
+
+    if (iccReconstructedPkEl) {
+      iccReconstructedPkEl.value = emvBytesToHex(new Uint8Array(fullPkBytes));
+      if (fullPkBytes.length !== pkLen) {
+        iccReconstructedPkEl.value += `\n\nNote: Reconstructed key is ${fullPkBytes.length} bytes, expected ${pkLen} bytes.`;
+        if (!remainderHex && fullPkBytes.length < pkLen) {
+          iccReconstructedPkEl.value += ' You may need to provide the ICC Public Key Remainder (Tag 9F48).';
+        }
+      }
+    }
+
+    // Hash Verification (per EMV Book 2 Table 14):
+    // Hash input = Cert Format || PAN || Exp Date || Serial || Hash Algo || ICC PK Algo
+    //            || ICC PK Len || ICC PK Exp Len || ICC PK or Leftmost Digits (incl. BB padding)
+    //            || ICC PK Remainder (if any) || ICC PK Exponent || Static Data to be Authenticated
+    let hashInput = [
+      certFormat,
+      ...panBytes,
+      ...expDateBytes,
+      ...serial,
+      hashAlgInd,
+      pkAlgInd,
+      pkLen,
+      expLenVal,
+      ...pkData
+    ];
+
+    if (remainderHex) {
+      hashInput = hashInput.concat(Array.from(emvHexToBytes(remainderHex)));
+    }
+    if (exponentHex) {
+      hashInput = hashInput.concat(Array.from(emvHexToBytes(exponentHex)));
+    }
+    if (staticDataHex) {
+      hashInput = hashInput.concat(Array.from(emvHexToBytes(staticDataHex)));
+    }
+
+    const hashInputBytes = new Uint8Array(hashInput);
+    const calculatedHash = await emvCalcSHA1(hashInputBytes);
+
+    if (iccHashVerificationResultEl && calculatedHash) {
+      const calcHashHex = emvBytesToHex(calculatedHash);
+      const certHashHex = emvBytesToHex(hashResult);
+
+      const inputDisplay = hashInput.length > 200
+        ? emvBytesToHex(hashInputBytes.slice(0, 100)) + '...' + emvBytesToHex(hashInputBytes.slice(-100)) + ` (${hashInput.length} bytes)`
+        : emvBytesToHex(hashInputBytes);
+
+      iccHashVerificationResultEl.innerHTML = `<strong>Hash Input:</strong> ${inputDisplay}<br><br>`;
+      iccHashVerificationResultEl.innerHTML += `<strong>Calculated SHA-1:</strong> ${calcHashHex}<br>`;
+      iccHashVerificationResultEl.innerHTML += `<strong>Certificate Hash:</strong> ${certHashHex}<br><br>`;
+
+      if (calcHashHex === certHashHex) {
+        iccHashVerificationResultEl.innerHTML += '<strong style="color: #22c55e;">Hash MATCHES - Certificate is valid!</strong>';
+      } else {
+        iccHashVerificationResultEl.innerHTML += '<strong style="color: #f59e0b;">Hash does NOT match.</strong>';
+        if (!staticDataHex) {
+          iccHashVerificationResultEl.innerHTML += '<br>Note: ICC certificate hash includes the Static Data to be Authenticated. Provide it above for full verification.';
+        }
+        if (!exponentHex) {
+          iccHashVerificationResultEl.innerHTML += '<br>Note: You may need to provide the ICC Public Key Exponent (Tag 9F47).';
+        }
+        if (!remainderHex && actualPkData.length < pkLen) {
+          iccHashVerificationResultEl.innerHTML += '<br>Note: You may need to provide the ICC Public Key Remainder (Tag 9F48).';
+        }
+      }
+    }
+
+    parseIccCertErrorEl.style.color = '#22c55e';
+    parseIccCertErrorEl.textContent = 'Certificate parsed successfully.';
+
+  } catch (error) {
+    parseIccCertErrorEl.textContent = `Error parsing certificate: ${error.message}`;
+    console.error('Parse ICC Certificate Error:', error);
   }
 });
 
