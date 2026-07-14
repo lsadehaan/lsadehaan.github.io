@@ -83,6 +83,33 @@ permalink: /emvtools/
     <div id="hexSelectionInfo" class="info-display-sm">
       Selected: 0 Chars | 0 Bytes
     </div>
+
+    <div class="emv-tool-section" style="margin-top: 24px;">
+      <h3>XOR Key Components</h3>
+      <p>Combine key components delivered in separate parts by XORing them together. Whitespace is ignored; all components must be the same length.</p>
+      <div class="form-group">
+        <label for="xorCompA" class="form-label">Component A (HEX):</label>
+        <textarea id="xorCompA" rows="2" class="tool-textarea"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="xorCompB" class="form-label">Component B (HEX):</label>
+        <textarea id="xorCompB" rows="2" class="tool-textarea"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="xorCompC" class="form-label">Component C (HEX, optional):</label>
+        <textarea id="xorCompC" rows="2" class="tool-textarea"></textarea>
+      </div>
+      <div class="button-row">
+        <button id="xorCombineBtn" type="button" class="tool-btn">XOR Components</button>
+        <button id="xorOddParityBtn" type="button" class="tool-btn" disabled>Apply Odd Parity to Result</button>
+      </div>
+      <div class="result-section">
+        <label for="xorResult" class="form-label">Combined Key (HEX):</label>
+        <textarea id="xorResult" rows="2" class="tool-textarea tool-textarea-readonly" readonly></textarea>
+      </div>
+      <div id="xorParityInfo" class="info-display-sm"></div>
+      <div id="xorError" class="error-message"></div>
+    </div>
   </div>
 
   <div id="cps" class="tab-content">
@@ -755,6 +782,99 @@ changeParityBtn?.addEventListener('click', function() {
   // Reselect the modified text
   hexOutputTextarea.setSelectionRange(start, start + changed.length);
   updateOffsetInfo();
+});
+
+// XOR Key Components Logic
+const xorCompA = document.getElementById('xorCompA');
+const xorCompB = document.getElementById('xorCompB');
+const xorCompC = document.getElementById('xorCompC');
+const xorCombineBtn = document.getElementById('xorCombineBtn');
+const xorOddParityBtn = document.getElementById('xorOddParityBtn');
+const xorResultEl = document.getElementById('xorResult');
+const xorParityInfo = document.getElementById('xorParityInfo');
+const xorErrorEl = document.getElementById('xorError');
+
+function describeByteParity(hex) {
+  let odd = 0, even = 0;
+  for (let i = 0; i + 2 <= hex.length; i += 2) {
+    const byte = parseInt(hex.substr(i, 2), 16);
+    let ones = 0;
+    for (let b = 0; b < 8; b++) {
+      if (byte & (1 << b)) ones++;
+    }
+    if (ones % 2 === 1) odd++; else even++;
+  }
+  if (odd && !even) return 'odd';
+  if (even && !odd) return 'even';
+  return 'mixed';
+}
+
+function readXorComponent(el, name, required) {
+  const hex = el.value.replace(/\s+/g, '');
+  if (!hex) {
+    if (required) throw new Error(`Component ${name} is empty.`);
+    return null;
+  }
+  if (!/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error(`Component ${name} contains non-hex characters.`);
+  }
+  if (hex.length % 2 !== 0) {
+    throw new Error(`Component ${name} has an odd number of hex digits.`);
+  }
+  return hex;
+}
+
+function updateXorParityInfo() {
+  const result = xorResultEl.value;
+  if (!result) {
+    xorParityInfo.textContent = '';
+    return;
+  }
+  const parts = [];
+  const a = xorCompA.value.replace(/\s+/g, '');
+  const b = xorCompB.value.replace(/\s+/g, '');
+  const c = xorCompC.value.replace(/\s+/g, '');
+  if (a) parts.push(`A: ${describeByteParity(a)}`);
+  if (b) parts.push(`B: ${describeByteParity(b)}`);
+  if (c) parts.push(`C: ${describeByteParity(c)}`);
+  parts.push(`Result: ${describeByteParity(result)}`);
+  xorParityInfo.textContent = `Length: ${result.length / 2} bytes | Byte parity — ${parts.join(' | ')}`;
+}
+
+xorCombineBtn?.addEventListener('click', function() {
+  xorErrorEl.textContent = '';
+  xorResultEl.value = '';
+  xorParityInfo.textContent = '';
+  xorOddParityBtn.disabled = true;
+  try {
+    const a = readXorComponent(xorCompA, 'A', true);
+    const b = readXorComponent(xorCompB, 'B', true);
+    const c = readXorComponent(xorCompC, 'C', false);
+    const components = c ? [a, b, c] : [a, b];
+    if (!components.every(x => x.length === a.length)) {
+      const lengths = components.map(x => `${x.length / 2} bytes`).join(' vs ');
+      throw new Error(`Components must be the same length (got ${lengths}).`);
+    }
+    let result = '';
+    for (let i = 0; i < a.length; i += 2) {
+      let byte = 0;
+      for (const comp of components) {
+        byte ^= parseInt(comp.substr(i, 2), 16);
+      }
+      result += byte.toString(16).padStart(2, '0').toUpperCase();
+    }
+    xorResultEl.value = result;
+    xorOddParityBtn.disabled = false;
+    updateXorParityInfo();
+  } catch (err) {
+    xorErrorEl.textContent = err.message;
+  }
+});
+
+xorOddParityBtn?.addEventListener('click', function() {
+  if (!xorResultEl.value) return;
+  xorResultEl.value = changeParityOfHexString(xorResultEl.value, 'odd');
+  updateXorParityInfo();
 });
 
 // CPS Data Extractor Logic
