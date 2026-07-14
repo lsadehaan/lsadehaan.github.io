@@ -82,13 +82,21 @@
     return bitsToBytes(permute(R.concat(L), FP));
   }
 
+  function splitDesKey(keyBytes) {
+    if (keyBytes.length === 8) return [keyBytes, keyBytes, keyBytes];
+    if (keyBytes.length === 16) return [keyBytes.slice(0, 8), keyBytes.slice(8, 16), keyBytes.slice(0, 8)];
+    if (keyBytes.length === 24) return [keyBytes.slice(0, 8), keyBytes.slice(8, 16), keyBytes.slice(16, 24)];
+    throw new Error("DES key must be 8, 16 or 24 bytes");
+  }
+
   function tdesEncryptBlock(keyBytes, block) {
-    let k1, k2, k3;
-    if (keyBytes.length === 8) { k1 = k2 = k3 = keyBytes; }
-    else if (keyBytes.length === 16) { k1 = keyBytes.slice(0, 8); k2 = keyBytes.slice(8, 16); k3 = k1; }
-    else if (keyBytes.length === 24) { k1 = keyBytes.slice(0, 8); k2 = keyBytes.slice(8, 16); k3 = keyBytes.slice(16, 24); }
-    else throw new Error("DES key must be 8, 16 or 24 bytes");
-    return desBlock(k3, desBlock(k2, desBlock(k1, block, false), true), false);
+    const k = splitDesKey(keyBytes);
+    return desBlock(k[2], desBlock(k[1], desBlock(k[0], block, false), true), false);
+  }
+
+  function tdesDecryptBlock(keyBytes, block) {
+    const k = splitDesKey(keyBytes);
+    return desBlock(k[0], desBlock(k[1], desBlock(k[2], block, true), false), true);
   }
 
   // ---------- AES (encrypt only) ----------
@@ -161,6 +169,171 @@
     return s;
   }
 
+  const AES_INV_SBOX = (function () {
+    const inv = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) inv[AES_SBOX[i]] = i;
+    return inv;
+  })();
+
+  function gmul(a, b) {
+    let p = 0;
+    while (b) {
+      if (b & 1) p ^= a;
+      a = xtime(a);
+      b >>= 1;
+    }
+    return p & 0xff;
+  }
+
+  function aesDecryptBlock(keyBytes, block) {
+    if (![16, 24, 32].includes(keyBytes.length)) throw new Error("AES key must be 16, 24 or 32 bytes");
+    const exp = aesKeyExpansion(keyBytes);
+    const w = exp.w, Nr = exp.Nr;
+    const s = block.slice();
+    const addRoundKey = function (round) {
+      for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) s[4 * c + r] ^= w[4 * round + c][r];
+    };
+    const invSubBytes = function () {
+      for (let i = 0; i < 16; i++) s[i] = AES_INV_SBOX[s[i]];
+    };
+    const invShiftRows = function () {
+      for (let r = 1; r < 4; r++) {
+        const row = [s[r], s[r + 4], s[r + 8], s[r + 12]];
+        for (let c = 0; c < 4; c++) s[r + 4 * c] = row[(c - r + 4) % 4];
+      }
+    };
+    const invMixColumns = function () {
+      for (let c = 0; c < 4; c++) {
+        const a = s.slice(4 * c, 4 * c + 4);
+        s[4 * c] = gmul(a[0], 14) ^ gmul(a[1], 11) ^ gmul(a[2], 13) ^ gmul(a[3], 9);
+        s[4 * c + 1] = gmul(a[0], 9) ^ gmul(a[1], 14) ^ gmul(a[2], 11) ^ gmul(a[3], 13);
+        s[4 * c + 2] = gmul(a[0], 13) ^ gmul(a[1], 9) ^ gmul(a[2], 14) ^ gmul(a[3], 11);
+        s[4 * c + 3] = gmul(a[0], 11) ^ gmul(a[1], 13) ^ gmul(a[2], 9) ^ gmul(a[3], 14);
+      }
+    };
+    addRoundKey(Nr);
+    for (let round = Nr - 1; round >= 1; round--) {
+      invShiftRows(); invSubBytes(); addRoundKey(round); invMixColumns();
+    }
+    invShiftRows(); invSubBytes(); addRoundKey(0);
+    return s;
+  }
+
+  // ---------- Modes, padding, MACs ----------
+  function blockCipher(algo, keyBytes) {
+    if (algo === "aes") {
+      return {
+        size: 16,
+        enc: function (b) { return aesEncryptBlock(keyBytes, b); },
+        dec: function (b) { return aesDecryptBlock(keyBytes, b); }
+      };
+    }
+    return {
+      size: 8,
+      enc: function (b) { return tdesEncryptBlock(keyBytes, b); },
+      dec: function (b) { return tdesDecryptBlock(keyBytes, b); }
+    };
+  }
+
+  function padData(data, method, blockSize) {
+    const d = data.slice();
+    if (method === "none" || !method) {
+      if (d.length === 0 || d.length % blockSize) throw new Error("Data must be a non-empty multiple of " + blockSize + " bytes, or select a padding method");
+      return d;
+    }
+    if (method === "pkcs7") {
+      const n = blockSize - (d.length % blockSize);
+      for (let i = 0; i < n; i++) d.push(n);
+      return d;
+    }
+    if (method === "m2") d.push(0x80);
+    while (d.length % blockSize || d.length === 0) d.push(0);
+    return d;
+  }
+
+  function unpadData(data, method) {
+    const d = data.slice();
+    if (method === "pkcs7") {
+      const n = d[d.length - 1];
+      if (!n || n > d.length) throw new Error("Invalid PKCS#7 padding");
+      return d.slice(0, d.length - n);
+    }
+    if (method === "m2") {
+      let i = d.length - 1;
+      while (i >= 0 && d[i] === 0) i--;
+      if (i < 0 || d[i] !== 0x80) throw new Error("Invalid ISO 9797-1 Method 2 padding");
+      return d.slice(0, i);
+    }
+    return d; // Method 1 (zeros) is not reversible; return raw
+  }
+
+  function symCrypt(algo, mode, keyBytes, ivBytes, dataBytes, decrypt) {
+    const c = blockCipher(algo, keyBytes);
+    if (dataBytes.length === 0 || dataBytes.length % c.size) {
+      throw new Error("Data must be a non-empty multiple of " + c.size + " bytes");
+    }
+    let iv = ivBytes && ivBytes.length ? ivBytes.slice() : new Array(c.size).fill(0);
+    if (iv.length !== c.size) throw new Error("IV must be " + c.size + " bytes");
+    const out = [];
+    for (let i = 0; i < dataBytes.length; i += c.size) {
+      const blk = dataBytes.slice(i, i + c.size);
+      if (decrypt) {
+        const p = c.dec(blk);
+        for (let j = 0; j < c.size; j++) out.push(mode === "cbc" ? p[j] ^ iv[j] : p[j]);
+        iv = blk;
+      } else {
+        const x = mode === "cbc" ? blk.map(function (b, j) { return b ^ iv[j]; }) : blk;
+        const e = c.enc(x);
+        out.push.apply(out, e);
+        iv = e;
+      }
+    }
+    return out;
+  }
+
+  // ISO 9797-1 MAC Algorithm 1: CBC-MAC over the padded data, zero IV.
+  function cbcMac(algo, keyBytes, dataBytes) {
+    const c = blockCipher(algo, keyBytes);
+    const enc = symCrypt(algo, "cbc", keyBytes, null, dataBytes, false);
+    return enc.slice(enc.length - c.size);
+  }
+
+  // ISO 9797-1 MAC Algorithm 3 (ANSI X9.19 Retail MAC): DES CBC-MAC with K1,
+  // then decrypt with K2 and encrypt with K1. Key is 16 bytes (K1 || K2).
+  function retailMac(keyBytes, dataBytes) {
+    if (keyBytes.length !== 16) throw new Error("Retail MAC key must be 16 bytes (K1 || K2)");
+    const k1 = keyBytes.slice(0, 8), k2 = keyBytes.slice(8, 16);
+    const enc = symCrypt("des", "cbc", k1, null, dataBytes, false);
+    const last = enc.slice(enc.length - 8);
+    return desBlock(k1, desBlock(k2, last, true), false);
+  }
+
+  // AES-CMAC (NIST SP 800-38B / RFC 4493). Handles its own padding.
+  function aesCmac(keyBytes, dataBytes) {
+    const dbl = function (b) {
+      const out = new Array(16);
+      let carry = 0;
+      for (let i = 15; i >= 0; i--) {
+        out[i] = ((b[i] << 1) | carry) & 0xff;
+        carry = (b[i] >> 7) & 1;
+      }
+      if (carry) out[15] ^= 0x87;
+      return out;
+    };
+    const L = aesEncryptBlock(keyBytes, new Array(16).fill(0));
+    const K1 = dbl(L), K2 = dbl(K1);
+    const complete = dataBytes.length > 0 && dataBytes.length % 16 === 0;
+    const m = dataBytes.slice();
+    if (!complete) {
+      m.push(0x80);
+      while (m.length % 16) m.push(0);
+    }
+    const sub = complete ? K1 : K2;
+    for (let j = 0; j < 16; j++) m[m.length - 16 + j] ^= sub[j];
+    const enc = symCrypt("aes", "cbc", keyBytes, null, m, false);
+    return enc.slice(enc.length - 16);
+  }
+
   // ---------- KCV ----------
   function hexToBytes(hex) {
     const out = [];
@@ -181,7 +354,17 @@
 
   return {
     tdesEncryptBlock: tdesEncryptBlock,
+    tdesDecryptBlock: tdesDecryptBlock,
     aesEncryptBlock: aesEncryptBlock,
-    calcKcv: calcKcv
+    aesDecryptBlock: aesDecryptBlock,
+    symCrypt: symCrypt,
+    padData: padData,
+    unpadData: unpadData,
+    cbcMac: cbcMac,
+    retailMac: retailMac,
+    aesCmac: aesCmac,
+    calcKcv: calcKcv,
+    hexToBytes: hexToBytes,
+    bytesToHex: bytesToHex
   };
 });

@@ -3,16 +3,17 @@ layout: toolpage
 title: EMV Tools — Free Online EMV & Payment Cryptography Toolkit
 permalink: /emvtools/
 description: >-
-  Free browser-based EMV and payment cryptography tools: EMV certificate
-  parser and CA/Issuer/ICC chain validator, raw RSA calculator, TDES/AES key
-  component XOR with KCV calculation, DES key parity fixer, hex editor with
-  byte offsets, EMV CPS personalization file parser, and SHA-1/SHA-256 hash
-  calculator.
+  Free browser-based EMV and payment cryptography tools: DES/TDES/AES
+  encryption and decryption (ECB/CBC), ISO 9797-1 MAC and Retail MAC (X9.19),
+  AES-CMAC, EMV certificate parser and CA/Issuer/ICC chain validator, raw RSA
+  calculator, TDES/AES key component XOR with KCV calculation, DES key parity
+  fixer, hex editor, EMV CPS personalization file parser, and SHA-1/SHA-256
+  hash calculator.
 ---
 
 # EMV Tools
 
-<p>Free browser-based tools for EMV payment card development and cryptography: parse and validate EMV certificates (CA → Issuer → ICC chain), perform raw RSA operations, combine TDES/AES key components with XOR and KCV calculation, fix DES key parity, inspect binary files in hex, parse EMV CPS personalization files, and calculate SHA-1/SHA-256 hashes. All processing happens locally in your browser — keys and data are never uploaded. See also the <a href="{{site.baseurl}}/ca-keys/">payment network CA public key database</a>.</p>
+<p>Free browser-based tools for EMV payment card development and cryptography: encrypt and decrypt with DES/TDES/AES (ECB/CBC), calculate ISO 9797-1 MACs (including X9.19 Retail MAC and AES-CMAC), parse and validate EMV certificates (CA → Issuer → ICC chain), perform raw RSA operations, combine TDES/AES key components with XOR and KCV calculation, fix DES key parity, inspect binary files in hex, parse EMV CPS personalization files, and calculate SHA-1/SHA-256 hashes. All processing happens locally in your browser — keys and data are never uploaded. See also the <a href="{{site.baseurl}}/ca-keys/">payment network CA public key database</a>.</p>
 
 <div class="tab-container">
   <div class="tab-nav">
@@ -27,8 +28,93 @@ description: >-
 
   <div id="symmetric" class="tab-content" style="display:block;">
     <h2>Symmetric Crypto</h2>
-    <p>Tools for symmetric key cryptography (e.g., AES, DES). Provide input fields for plaintext/ciphertext, key, IV, and options for algorithm, mode, and padding.</p>
-    <!-- UI for Symmetric Crypto will go here -->
+    <p>DES/TDES and AES operations for payment cryptography: encrypt, decrypt, and MAC calculation. All inputs are ASCII HEX (whitespace ignored) and all processing happens locally in your browser.</p>
+
+    <div class="hex-subtool" style="border-top: none; padding-top: 0;">
+      <h3>Encrypt / Decrypt</h3>
+      <div class="form-group">
+        <label class="parity-label">Algorithm:
+          <select id="symAlgo" class="parity-select">
+            <option value="des">DES/TDES (key 8/16/24 bytes)</option>
+            <option value="aes">AES (key 16/24/32 bytes)</option>
+          </select>
+        </label>
+        <label class="parity-label">Mode:
+          <select id="symMode" class="parity-select">
+            <option value="ecb">ECB</option>
+            <option value="cbc">CBC</option>
+          </select>
+        </label>
+        <label class="parity-label">Padding:
+          <select id="symPad" class="parity-select">
+            <option value="none">None</option>
+            <option value="m1">ISO 9797-1 M1 (zeros)</option>
+            <option value="m2">ISO 9797-1 M2 (80 00…)</option>
+            <option value="pkcs7">PKCS#7</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="symKey" class="form-label">Key (HEX):</label>
+        <textarea id="symKey" rows="1" class="tool-textarea"></textarea>
+        <div id="symKeyInfo" class="info-display-sm"></div>
+      </div>
+      <div class="form-group">
+        <label for="symIv" class="form-label">IV (HEX, CBC only — blank for zero IV):</label>
+        <textarea id="symIv" rows="1" class="tool-textarea"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="symData" class="form-label">Data (HEX):</label>
+        <textarea id="symData" rows="3" class="tool-textarea"></textarea>
+      </div>
+      <div class="button-row">
+        <button id="symEncryptBtn" type="button" class="tool-btn">Encrypt</button>
+        <button id="symDecryptBtn" type="button" class="tool-btn">Decrypt</button>
+      </div>
+      <div class="result-section">
+        <label for="symResult" class="form-label">Result (HEX):</label>
+        <textarea id="symResult" rows="3" class="tool-textarea tool-textarea-readonly" readonly></textarea>
+      </div>
+      <div id="symInfo" class="info-display-sm"></div>
+      <div id="symError" class="error-message"></div>
+    </div>
+
+    <div class="hex-subtool">
+      <h3>MAC Calculator</h3>
+      <p>Zero IV. Padding applies to the ISO 9797-1 algorithms; AES-CMAC handles its own padding.</p>
+      <div class="form-group">
+        <label class="parity-label">Algorithm:
+          <select id="macType" class="parity-select">
+            <option value="alg1">ISO 9797-1 Alg 1 — CBC-MAC (DES/TDES)</option>
+            <option value="alg3">ISO 9797-1 Alg 3 — Retail MAC / X9.19 (16-byte key)</option>
+            <option value="cmac">AES-CMAC (SP 800-38B)</option>
+          </select>
+        </label>
+        <label class="parity-label">Padding:
+          <select id="macPad" class="parity-select">
+            <option value="m1">ISO 9797-1 M1 (zeros)</option>
+            <option value="m2">ISO 9797-1 M2 (80 00…)</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="macKey" class="form-label">Key (HEX):</label>
+        <textarea id="macKey" rows="1" class="tool-textarea"></textarea>
+        <div id="macKeyInfo" class="info-display-sm"></div>
+      </div>
+      <div class="form-group">
+        <label for="macData" class="form-label">Data (HEX):</label>
+        <textarea id="macData" rows="3" class="tool-textarea"></textarea>
+      </div>
+      <button id="macCalcBtn" type="button" class="tool-btn">Calculate MAC</button>
+      <div class="result-section">
+        <label for="macResult" class="form-label">MAC (HEX):</label>
+        <textarea id="macResult" rows="1" class="tool-textarea tool-textarea-readonly" readonly></textarea>
+      </div>
+      <div id="macInfo" class="info-display-sm"></div>
+      <div id="macError" class="error-message"></div>
+    </div>
   </div>
 
   <div id="rsa" class="tab-content">
@@ -802,6 +888,113 @@ changeParityBtn?.addEventListener('click', function() {
   // Reselect the modified text
   hexOutputTextarea.setSelectionRange(start, start + changed.length);
   updateOffsetInfo();
+});
+
+// Symmetric Crypto Logic
+const symAlgo = document.getElementById('symAlgo');
+const symMode = document.getElementById('symMode');
+const symPad = document.getElementById('symPad');
+const symKey = document.getElementById('symKey');
+const symKeyInfo = document.getElementById('symKeyInfo');
+const symIv = document.getElementById('symIv');
+const symData = document.getElementById('symData');
+const symResult = document.getElementById('symResult');
+const symInfo = document.getElementById('symInfo');
+const symError = document.getElementById('symError');
+
+function cleanHexOrThrow(value, name) {
+  const hex = value.replace(/\s+/g, '');
+  if (!hex) throw new Error(`${name} is empty.`);
+  if (!/^[0-9a-fA-F]+$/.test(hex)) throw new Error(`${name} contains non-hex characters.`);
+  if (hex.length % 2 !== 0) throw new Error(`${name} has an odd number of hex digits.`);
+  return hex;
+}
+
+function updateKeyInfo(keyEl, infoEl, algoValue) {
+  const hex = keyEl.value.replace(/\s+/g, '');
+  if (!hex || !/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0 || !window.KCV) {
+    infoEl.textContent = '';
+    return;
+  }
+  let text = `${hex.length / 2} bytes`;
+  try {
+    text += ` | KCV (${algoValue.toUpperCase()}): ${window.KCV.calcKcv(hex, algoValue)}`;
+  } catch (e) { /* invalid key length for algorithm — length alone is still useful */ }
+  infoEl.textContent = text;
+}
+
+function symOperation(decrypt) {
+  symError.textContent = '';
+  symResult.value = '';
+  symInfo.textContent = '';
+  try {
+    const algo = symAlgo.value;
+    const mode = symMode.value;
+    const pad = symPad.value;
+    const key = window.KCV.hexToBytes(cleanHexOrThrow(symKey.value, 'Key'));
+    const ivHex = symIv.value.replace(/\s+/g, '');
+    const iv = ivHex ? window.KCV.hexToBytes(cleanHexOrThrow(symIv.value, 'IV')) : null;
+    let data = window.KCV.hexToBytes(cleanHexOrThrow(symData.value, 'Data'));
+    const blockSize = algo === 'aes' ? 16 : 8;
+    const notes = [];
+    if (!decrypt) {
+      data = window.KCV.padData(data, pad, blockSize);
+      if (pad !== 'none') notes.push(`padded to ${data.length} bytes (${symPad.options[symPad.selectedIndex].text})`);
+    }
+    let out = window.KCV.symCrypt(algo, mode, key, mode === 'cbc' ? iv : null, data, decrypt);
+    if (decrypt && (pad === 'm2' || pad === 'pkcs7')) {
+      out = window.KCV.unpadData(out, pad);
+      notes.push('padding removed');
+    }
+    symResult.value = window.KCV.bytesToHex(out);
+    symInfo.textContent = `${decrypt ? 'Decrypted' : 'Encrypted'} ${out.length} bytes` + (notes.length ? ` — ${notes.join(', ')}` : '');
+  } catch (err) {
+    symError.textContent = err.message;
+  }
+}
+
+document.getElementById('symEncryptBtn')?.addEventListener('click', function() { symOperation(false); });
+document.getElementById('symDecryptBtn')?.addEventListener('click', function() { symOperation(true); });
+symKey?.addEventListener('input', function() { updateKeyInfo(symKey, symKeyInfo, symAlgo.value); });
+symAlgo?.addEventListener('change', function() { updateKeyInfo(symKey, symKeyInfo, symAlgo.value); });
+
+// MAC Calculator Logic
+const macType = document.getElementById('macType');
+const macPad = document.getElementById('macPad');
+const macKey = document.getElementById('macKey');
+const macKeyInfo = document.getElementById('macKeyInfo');
+const macData = document.getElementById('macData');
+const macResult = document.getElementById('macResult');
+const macInfo = document.getElementById('macInfo');
+const macError = document.getElementById('macError');
+
+document.getElementById('macCalcBtn')?.addEventListener('click', function() {
+  macError.textContent = '';
+  macResult.value = '';
+  macInfo.textContent = '';
+  try {
+    const key = window.KCV.hexToBytes(cleanHexOrThrow(macKey.value, 'Key'));
+    const data = window.KCV.hexToBytes(cleanHexOrThrow(macData.value, 'Data'));
+    let mac;
+    if (macType.value === 'cmac') {
+      mac = window.KCV.aesCmac(key, data);
+    } else {
+      const padded = window.KCV.padData(data, macPad.value, 8);
+      mac = macType.value === 'alg3' ? window.KCV.retailMac(key, padded) : window.KCV.cbcMac('des', key, padded);
+    }
+    const hex = window.KCV.bytesToHex(mac);
+    macResult.value = hex;
+    macInfo.textContent = `Truncated — 8 bytes: ${hex.substring(0, 16)} | 4 bytes: ${hex.substring(0, 8)}`;
+  } catch (err) {
+    macError.textContent = err.message;
+  }
+});
+
+macKey?.addEventListener('input', function() {
+  updateKeyInfo(macKey, macKeyInfo, macType.value === 'cmac' ? 'aes' : 'des');
+});
+macType?.addEventListener('change', function() {
+  updateKeyInfo(macKey, macKeyInfo, macType.value === 'cmac' ? 'aes' : 'des');
 });
 
 // XOR Key Components Logic
