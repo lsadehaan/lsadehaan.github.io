@@ -1,4 +1,11 @@
 title: IDNTEQ
+description: >-
+  IDNTEQ — payment technology consulting, free online EMV and payment
+  cryptography tools (certificate parsing and validation, RSA, key component
+  XOR with KCV, DES parity, CPS file parsing), and a blog on payments and
+  software engineering.
+url: "https://www.idnteq.net"
+lang: en
 markdown: kramdown
 
 # for atom feed

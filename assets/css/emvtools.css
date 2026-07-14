@@ -549,6 +549,17 @@ input[type="file"]::file-selector-button:hover {
   margin-top: 0;
 }
 
+.xor-result-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.xor-result-row input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ===== CA Keys browser ===== */
 .ca-keys-controls {
   display: flex;

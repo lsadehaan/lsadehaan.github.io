@@ -1,10 +1,18 @@
 ---
 layout: toolpage
-title: EMV Tools
+title: EMV Tools — Free Online EMV & Payment Cryptography Toolkit
 permalink: /emvtools/
+description: >-
+  Free browser-based EMV and payment cryptography tools: EMV certificate
+  parser and CA/Issuer/ICC chain validator, raw RSA calculator, TDES/AES key
+  component XOR with KCV calculation, DES key parity fixer, hex editor with
+  byte offsets, EMV CPS personalization file parser, and SHA-1/SHA-256 hash
+  calculator.
 ---
 
 # EMV Tools
+
+<p>Free browser-based tools for EMV payment card development and cryptography: parse and validate EMV certificates (CA → Issuer → ICC chain), perform raw RSA operations, combine TDES/AES key components with XOR and KCV calculation, fix DES key parity, inspect binary files in hex, parse EMV CPS personalization files, and calculate SHA-1/SHA-256 hashes. All processing happens locally in your browser — keys and data are never uploaded. See also the <a href="{{site.baseurl}}/ca-keys/">payment network CA public key database</a>.</p>
 
 <div class="tab-container">
   <div class="tab-nav">
@@ -102,12 +110,23 @@ permalink: /emvtools/
       <div class="button-row">
         <button id="xorCombineBtn" type="button" class="tool-btn">XOR Components</button>
         <button id="xorOddParityBtn" type="button" class="tool-btn" disabled>Apply Odd Parity to Result</button>
+        <label class="parity-label">KCV Type:
+          <select id="xorKcvType" class="parity-select">
+            <option value="des">DES</option>
+            <option value="aes">AES</option>
+          </select>
+        </label>
       </div>
       <div class="result-section">
         <label for="xorResult" class="form-label">Combined Key (HEX):</label>
-        <textarea id="xorResult" rows="2" class="tool-textarea tool-textarea-readonly" readonly></textarea>
+        <div class="xor-result-row">
+          <input type="password" id="xorResult" class="tool-textarea" readonly autocomplete="off" />
+          <button id="xorShowBtn" type="button" class="tool-btn" disabled>Show</button>
+          <button id="xorCopyBtn" type="button" class="tool-btn" disabled>Copy</button>
+        </div>
       </div>
       <div id="xorParityInfo" class="info-display-sm"></div>
+      <div id="xorKcvInfo" class="info-display-sm"></div>
       <div id="xorError" class="error-message"></div>
     </div>
   </div>
@@ -497,6 +516,7 @@ permalink: /emvtools/
   </div>
 </div>
 
+<script src="{{ site.baseurl }}/assets/js/kcv-crypto.js"></script>
 <script>
 function openTool(evt, toolName) {
   var i, tabcontent, tabbuttons;
@@ -793,6 +813,10 @@ const xorOddParityBtn = document.getElementById('xorOddParityBtn');
 const xorResultEl = document.getElementById('xorResult');
 const xorParityInfo = document.getElementById('xorParityInfo');
 const xorErrorEl = document.getElementById('xorError');
+const xorKcvType = document.getElementById('xorKcvType');
+const xorKcvInfo = document.getElementById('xorKcvInfo');
+const xorShowBtn = document.getElementById('xorShowBtn');
+const xorCopyBtn = document.getElementById('xorCopyBtn');
 
 function describeByteParity(hex) {
   let odd = 0, even = 0;
@@ -841,11 +865,41 @@ function updateXorParityInfo() {
   xorParityInfo.textContent = `Length: ${result.length / 2} bytes | Byte parity — ${parts.join(' | ')}`;
 }
 
+function calcKcvOrNa(hex) {
+  if (!hex || !window.KCV) return null;
+  try {
+    return window.KCV.calcKcv(hex, xorKcvType.value);
+  } catch (e) {
+    return 'n/a';
+  }
+}
+
+function updateXorKcvInfo() {
+  const result = xorResultEl.value;
+  if (!result) {
+    xorKcvInfo.textContent = '';
+    return;
+  }
+  const parts = [];
+  const fields = [['A', xorCompA], ['B', xorCompB], ['C', xorCompC]];
+  for (const [name, el] of fields) {
+    const kcv = calcKcvOrNa(el.value.replace(/\s+/g, ''));
+    if (kcv) parts.push(`${name}: ${kcv}`);
+  }
+  parts.push(`Result: ${calcKcvOrNa(result)}`);
+  xorKcvInfo.textContent = `KCV (${xorKcvType.value.toUpperCase()}) — ${parts.join(' | ')}`;
+}
+
 xorCombineBtn?.addEventListener('click', function() {
   xorErrorEl.textContent = '';
   xorResultEl.value = '';
   xorParityInfo.textContent = '';
+  xorKcvInfo.textContent = '';
   xorOddParityBtn.disabled = true;
+  xorShowBtn.disabled = true;
+  xorCopyBtn.disabled = true;
+  xorResultEl.type = 'password';
+  xorShowBtn.textContent = 'Show';
   try {
     const a = readXorComponent(xorCompA, 'A', true);
     const b = readXorComponent(xorCompB, 'B', true);
@@ -865,7 +919,10 @@ xorCombineBtn?.addEventListener('click', function() {
     }
     xorResultEl.value = result;
     xorOddParityBtn.disabled = false;
+    xorShowBtn.disabled = false;
+    xorCopyBtn.disabled = false;
     updateXorParityInfo();
+    updateXorKcvInfo();
   } catch (err) {
     xorErrorEl.textContent = err.message;
   }
@@ -875,6 +932,26 @@ xorOddParityBtn?.addEventListener('click', function() {
   if (!xorResultEl.value) return;
   xorResultEl.value = changeParityOfHexString(xorResultEl.value, 'odd');
   updateXorParityInfo();
+  updateXorKcvInfo();
+});
+
+xorKcvType?.addEventListener('change', updateXorKcvInfo);
+
+xorShowBtn?.addEventListener('click', function() {
+  const hidden = xorResultEl.type === 'password';
+  xorResultEl.type = hidden ? 'text' : 'password';
+  xorShowBtn.textContent = hidden ? 'Hide' : 'Show';
+});
+
+xorCopyBtn?.addEventListener('click', async function() {
+  if (!xorResultEl.value) return;
+  try {
+    await navigator.clipboard.writeText(xorResultEl.value);
+    xorCopyBtn.textContent = 'Copied!';
+  } catch (e) {
+    xorCopyBtn.textContent = 'Copy failed';
+  }
+  setTimeout(() => { xorCopyBtn.textContent = 'Copy'; }, 1500);
 });
 
 // CPS Data Extractor Logic

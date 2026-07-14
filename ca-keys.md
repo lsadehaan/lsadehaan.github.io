@@ -1,7 +1,12 @@
 ---
 layout: toolpage
-title: CA Public Keys
+title: EMV CA Public Keys — Visa, Mastercard, Discover Test & Production Keys
 permalink: /ca-keys/
+description: >-
+  Browsable database of EMV Certificate Authority (CA) public keys by payment
+  network (Visa, Mastercard, Discover) with RID, key index, modulus, exponent
+  and SHA-1 checksum. Search by RID or index and copy values for use in EMV
+  certificate validation.
 ---
 
 # Payment Network CA Public Keys
