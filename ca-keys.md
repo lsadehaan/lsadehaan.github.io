@@ -53,12 +53,6 @@ permalink: /ca-keys/
     filterEl.appendChild(opt);
   });
 
-  function chunkHex(hex, size) {
-    const out = [];
-    for (let i = 0; i < hex.length; i += size) out.push(hex.substring(i, i + size));
-    return out.join(' ');
-  }
-
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
@@ -125,7 +119,7 @@ permalink: /ca-keys/
                   <td>
                     <details>
                       <summary>Show ${k.size / 8}-byte modulus</summary>
-                      <pre id="${modId}" class="ca-modulus">${chunkHex(k.modulus, 32)}</pre>
+                      <pre id="${modId}" class="ca-modulus">${escapeHtml(k.modulus)}</pre>
                       <button class="ca-copy-btn" data-copy="${escapeHtml(k.modulus)}">Copy modulus</button>
                     </details>
                   </td>
