@@ -84,7 +84,7 @@ permalink: /emvtools/
       Selected: 0 Chars | 0 Bytes
     </div>
 
-    <div class="emv-tool-section" style="margin-top: 24px;">
+    <div class="hex-subtool">
       <h3>XOR Key Components</h3>
       <p>Combine key components delivered in separate parts by XORing them together. Whitespace is ignored; all components must be the same length.</p>
       <div class="form-group">

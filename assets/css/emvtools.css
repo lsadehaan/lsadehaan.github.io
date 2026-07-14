@@ -538,6 +538,17 @@ input[type="file"]::file-selector-button:hover {
   }
 }
 
+/* ===== Hex Manipulator sub-tools ===== */
+.hex-subtool {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-1);
+}
+
+.hex-subtool h3 {
+  margin-top: 0;
+}
+
 /* ===== CA Keys browser ===== */
 .ca-keys-controls {
   display: flex;
@@ -563,6 +574,9 @@ input[type="file"]::file-selector-button:hover {
 
 .ca-key-card {
   margin-bottom: 12px;
+  border: 1px solid var(--gray-1);
+  border-radius: 6px;
+  padding: 12px;
 }
 
 .ca-key-header {

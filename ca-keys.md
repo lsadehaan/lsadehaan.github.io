@@ -109,7 +109,7 @@ permalink: /ca-keys/
       for (const k of groups[net]) {
         const modId = `mod-${net}-${k.index}-${k.size}`.replace(/[^a-zA-Z0-9_-]/g, '_');
         html += `
-          <div class="ca-key-card emv-tool-section">
+          <div class="ca-key-card">
             <div class="ca-key-header">
               <strong>${escapeHtml(k.network)}</strong> &mdash; Index <code>${escapeHtml(k.index)}</code> &mdash; ${k.size} bit
             </div>
