@@ -2942,6 +2942,7 @@ csrResponseFile?.addEventListener('change', function() {
   const reader = new FileReader();
   reader.onload = function(e) {
     csrLastFileData = new Uint8Array(e.target.result);
+    csrLastFileName = file.name || '';
     processCsrFileData(csrLastFileData);
   };
 
@@ -2955,6 +2956,7 @@ csrResponseFile?.addEventListener('change', function() {
 });
 
 let csrLastFileData = null;
+let csrLastFileName = '';
 
 function processCsrFileData(data) {
     if (csrErrorEl) csrErrorEl.textContent = '';
@@ -3112,7 +3114,11 @@ function processCsrFileData(data) {
       const formatSel = document.getElementById('csrFormatSelect');
       let format = formatSel ? formatSel.value : 'auto';
       if (format === 'auto') {
-        format = findVisaKeyForFile(data) ? 'visa' : isEloNational(data) ? 'eloNational' : 'mastercard';
+        // File extension first: .Ixx = Visa, .cxx = Mastercard (xx = CA index),
+        // then content heuristics
+        if (/\.i[0-9a-f]{2}$/i.test(csrLastFileName)) format = 'visa';
+        else if (/\.c[0-9a-f]{2}$/i.test(csrLastFileName)) format = 'mastercard';
+        else format = findVisaKeyForFile(data) ? 'visa' : isEloNational(data) ? 'eloNational' : 'mastercard';
       }
       const parsers = {
         visa: parseVisaCsr,
