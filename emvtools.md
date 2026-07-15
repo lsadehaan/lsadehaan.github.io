@@ -407,17 +407,41 @@ description: >-
 
     <div id="validateCsrResponseTool" class="emv-tool-section">
       <h3>Validate CSR Response</h3>
-      <p>Upload a Mastercard CSR response file (.cEF) to extract and validate the Issuer Public Key Certificate.</p>
+      <p>Upload a payment network CSR response file — Mastercard (.c** where ** is the CA index) or Visa (.I** ) — to extract and validate the Issuer Public Key Certificate. Visa files also carry a CA file signature which is verified.</p>
       <div class="form-group">
-        <label for="csrResponseFile" class="form-label">Upload CSR Response File (.c** where ** is the CA Key Index):</label>
+        <label class="parity-label">Format:
+          <select id="csrFormatSelect" class="parity-select">
+            <option value="auto">Auto-detect</option>
+            <option value="mastercard">Mastercard (.cEF)</option>
+            <option value="visa">Visa (.Ixx)</option>
+            <option value="eloNational">Elo National</option>
+            <option value="eloDiscover">Elo Discover (IPKC)</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-group" id="csrCaKeySelectGroup" style="display:none;">
+        <label for="csrCaKeySelect" class="form-label">CA Public Key (required for Elo Discover — file has no key index):</label>
+        <select id="csrCaKeySelect" class="parity-select">
+          <option value="-1">-- select CA key --</option>
+        </select>
+      </div>
+      <div class="form-group" id="csrIssuerExpGroup" style="display:none;">
+        <label for="csrIssuerExp" class="form-label">Issuer Exponent (HEX, used in hash check — not present in Elo files):</label>
+        <input id="csrIssuerExp" class="input-sm" value="03">
+      </div>
+      <div class="form-group">
+        <label for="csrResponseFile" class="form-label">Upload CSR Response File:</label>
         <input type="file" id="csrResponseFile" class="input-full">
       </div>
       <div id="csrFileInfo" class="info-display" style="display:none;">
         <h4>CSR Response File Info:</h4>
         <table class="summary-table">
           <tbody>
+            <tr><td>Network</td><td id="csrNetwork">-</td></tr>
             <tr><td>BIN</td><td id="csrBin">-</td></tr>
-            <tr><td>File ID</td><td id="csrFileId">-</td></tr>
+            <tr><td id="csrFileIdLabel">File ID</td><td id="csrFileId">-</td></tr>
+            <tr id="csrSerialRow" style="display:none;"><td>Serial Number</td><td id="csrSerial">-</td></tr>
+            <tr id="csrExpiryRow" style="display:none;"><td>Expiry (MM/YY)</td><td id="csrExpiry">-</td></tr>
             <tr><td>CA Key Index</td><td id="csrCaIndex">-</td></tr>
             <tr><td>Exponent</td><td id="csrExponent">-</td></tr>
             <tr><td>Certificate Size</td><td id="csrCertSize">-</td></tr>
@@ -2917,62 +2941,8 @@ csrResponseFile?.addEventListener('change', function() {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    const data = new Uint8Array(e.target.result);
-
-    if (data.length < 10) {
-      if (csrErrorEl) csrErrorEl.textContent = 'File too small to be a valid CSR response.';
-      if (csrFileInfo) csrFileInfo.style.display = 'none';
-      if (validateCsrBtn) validateCsrBtn.disabled = true;
-      return;
-    }
-
-    // Parse CSR file structure:
-    // Bytes 0-3: BIN (3-4 bytes, padded with FF)
-    // Bytes 4-6: FileId (Mastercard internal reference)
-    // Byte 7: CA Key Index
-    // Byte 8: Exponent
-    // Bytes 9+: Certificate data
-
-    // Extract BIN (remove FF padding)
-    let binBytes = data.slice(0, 4);
-    let binHex = Array.from(binBytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    binHex = binHex.replace(/F+$/, ''); // Remove trailing F padding
-
-    // Extract FileId
-    let fileIdBytes = data.slice(4, 7);
-    let fileIdHex = Array.from(fileIdBytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-    // Extract CA Key Index
-    let caKeyIndex = data[7].toString(16).padStart(2, '0').toUpperCase();
-
-    // Extract Exponent
-    let exponent = data[8].toString(16).padStart(2, '0').toUpperCase();
-
-    // Extract Certificate data (from byte 9 onwards)
-    let certData = data.slice(9);
-    let certHex = Array.from(certData).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-    // Update UI
-    if (csrBinEl) csrBinEl.textContent = binHex;
-    if (csrFileIdEl) csrFileIdEl.textContent = fileIdHex;
-    if (csrCaIndexEl) csrCaIndexEl.textContent = caKeyIndex;
-    if (csrExponentEl) csrExponentEl.textContent = exponent;
-    if (csrCertSizeEl) csrCertSizeEl.textContent = `${certData.length} bytes (${certData.length * 8} bits)`;
-    const csrIssuerCertHexEl = document.getElementById('csrIssuerCertHex');
-    if (csrIssuerCertHexEl) csrIssuerCertHexEl.value = certHex;
-    if (csrFileInfo) csrFileInfo.style.display = 'block';
-
-    // Store parsed data for validation
-    csrParsedData = {
-      bin: binHex,
-      fileId: fileIdHex,
-      caKeyIndex: caKeyIndex,
-      exponent: exponent,
-      certHex: certHex,
-      certBytes: certData.length
-    };
-
-    if (validateCsrBtn) validateCsrBtn.disabled = false;
+    csrLastFileData = new Uint8Array(e.target.result);
+    processCsrFileData(csrLastFileData);
   };
 
   reader.onerror = function() {
@@ -2983,6 +2953,230 @@ csrResponseFile?.addEventListener('change', function() {
 
   reader.readAsArrayBuffer(file);
 });
+
+let csrLastFileData = null;
+
+function processCsrFileData(data) {
+    if (csrErrorEl) csrErrorEl.textContent = '';
+    if (csrValidationResults) csrValidationResults.value = '';
+
+    if (data.length < 10) {
+      if (csrErrorEl) csrErrorEl.textContent = 'File too small to be a valid CSR response.';
+      if (csrFileInfo) csrFileInfo.style.display = 'none';
+      if (validateCsrBtn) validateCsrBtn.disabled = true;
+      return;
+    }
+
+    const toHex = arr => Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+    // Visa .Ixx file layout:
+    // Bytes 0-4:   file header (reserved)
+    // Bytes 5-8:   BIN (BCD, right-padded with F)
+    // Bytes 9-11:  certificate serial number
+    // Bytes 12-13: certificate expiry (MMYY)
+    // Bytes 14-15: sequence/reserved
+    // Byte 16:     issuer public key exponent
+    // Byte 17:     CA key index
+    // Bytes 18+:   Issuer PK certificate (NCA bytes), then optionally a
+    //              PKCS#1 v1.5 SHA-1 signature by the CA (NCA bytes) over
+    //              (bytes 0-17 || recovered certificate plaintext)
+    function findVisaKeyForFile(data) {
+      if (data.length < 19) return null;
+      const idx = data[17].toString(16).padStart(2, '0').toUpperCase();
+      return caPublicKeys.find(k => {
+        const nca = k.size / 8;
+        return k.rid === 'A000000003' && k.index === idx &&
+          (data.length === 18 + nca || data.length === 18 + 2 * nca);
+      }) || null;
+    }
+
+    function parseVisaCsr(data) {
+      const visaKey = findVisaKeyForFile(data);
+      if (!visaKey) {
+        const idx = data.length >= 18 ? data[17].toString(16).padStart(2, '0').toUpperCase() : '??';
+        throw new Error(`No Visa CA key with index ${idx} matches this file size (${data.length} bytes).`);
+      }
+      const nca = visaKey.size / 8;
+      const certData = data.slice(18, 18 + nca);
+      const sigData = data.length === 18 + 2 * nca ? data.slice(18 + nca) : null;
+      return {
+        network: 'Visa',
+        rid: 'A000000003',
+        bin: toHex(data.slice(5, 9)).replace(/F+$/, ''),
+        serial: toHex(data.slice(9, 12)),
+        expiry: toHex(data.slice(12, 14)),
+        fileId: toHex(data.slice(0, 5)),
+        fileIdLabel: 'File Header (reserved)',
+        headerHex: toHex(data.slice(0, 18)),
+        caKeyIndex: toHex([data[17]]),
+        exponent: toHex([data[16]]),
+        certHex: toHex(certData),
+        certBytes: certData.length,
+        signatureHex: sigData ? toHex(sigData) : null
+      };
+    }
+
+    function parseMastercardCsr(data) {
+      // Bytes 0-3: BIN (padded with FF), 4-6: FileId, 7: CA index,
+      // 8: exponent, 9+: certificate
+      const certData = data.slice(9);
+      return {
+        network: 'Mastercard',
+        rid: 'A000000004',
+        bin: toHex(data.slice(0, 4)).replace(/F+$/, ''),
+        serial: null,
+        expiry: null,
+        fileId: toHex(data.slice(4, 7)),
+        fileIdLabel: 'File ID',
+        headerHex: null,
+        caKeyIndex: toHex([data[7]]),
+        exponent: toHex([data[8]]),
+        certHex: toHex(certData),
+        certBytes: certData.length,
+        signatureHex: null
+      };
+    }
+
+    // Elo National CSR response layout:
+    // Byte 0: header indicator (0x30), 1-4: CA counter, 5-8: BIN (FF padded),
+    // 9-11: issuer key reference, 12: PK_ID (CA index), 13-14: expiry MMYY (BCD),
+    // 15-16: certificate length (big-endian), 17+: certificate.
+    // The issuer exponent is NOT in the file; taken from the input field.
+    function isEloNational(data) {
+      if (data.length < 18 || data[0] !== 0x30) return false;
+      const certLen = (data[15] << 8) | data[16];
+      return certLen > 0 && 17 + certLen === data.length;
+    }
+
+    function parseEloNationalCsr(data) {
+      if (data[0] !== 0x30) throw new Error('Not an Elo National file (header indicator is not 30).');
+      const certLen = (data[15] << 8) | data[16];
+      if (17 + certLen > data.length) {
+        throw new Error(`Certificate length (${certLen} bytes) exceeds remaining file size (${data.length - 17} bytes).`);
+      }
+      const certData = data.slice(17, 17 + certLen);
+      const expInput = document.getElementById('csrIssuerExp');
+      const issuerExp = (expInput && expInput.value.replace(/\s+/g, '')) || '03';
+      return {
+        network: 'Elo National',
+        rid: null, // PK_ID lookup across all networks
+        bin: toHex(data.slice(5, 9)).replace(/F+$/, ''),
+        serial: null,
+        expiry: toHex(data.slice(13, 15)),
+        fileId: `CA counter ${toHex(data.slice(1, 5))}, issuer key ${toHex(data.slice(9, 12))}`,
+        fileIdLabel: 'File References',
+        headerHex: null,
+        caKeyIndex: toHex([data[12]]),
+        exponent: issuerExp.toUpperCase(),
+        certHex: toHex(certData),
+        certBytes: certData.length,
+        signatureHex: null
+      };
+    }
+
+    // Elo Discover IPKC layout: raw certificate (CA modulus length) followed
+    // optionally by the issuer exponent bytes. No key index in the file —
+    // the CA key must be selected manually.
+    function parseEloDiscoverCsr(data) {
+      const sel = document.getElementById('csrCaKeySelect');
+      const key = caPublicKeys[parseInt(sel ? sel.value : '-1', 10)];
+      if (!key) throw new Error('Select a CA Public Key for Elo Discover files (the file carries no key index).');
+      const nca = key.size / 8;
+      if (data.length < nca) throw new Error(`File (${data.length} bytes) is smaller than the CA modulus (${nca} bytes).`);
+      const certData = data.slice(0, nca);
+      const expBytes = data.slice(nca);
+      let exponent = expBytes.length ? toHex(expBytes) : null;
+      if (!exponent) {
+        const expInput = document.getElementById('csrIssuerExp');
+        exponent = ((expInput && expInput.value.replace(/\s+/g, '')) || '03').toUpperCase();
+      }
+      return {
+        network: 'Elo Discover',
+        rid: key.rid,
+        explicitKey: key,
+        bin: '-',
+        serial: null,
+        expiry: null,
+        fileId: expBytes.length ? `Issuer exponent from file: ${toHex(expBytes)}` : '(certificate only)',
+        fileIdLabel: 'File Extras',
+        headerHex: null,
+        caKeyIndex: key.index,
+        exponent: exponent,
+        certHex: toHex(certData),
+        certBytes: certData.length,
+        signatureHex: null
+      };
+    }
+
+    try {
+      const formatSel = document.getElementById('csrFormatSelect');
+      let format = formatSel ? formatSel.value : 'auto';
+      if (format === 'auto') {
+        format = findVisaKeyForFile(data) ? 'visa' : isEloNational(data) ? 'eloNational' : 'mastercard';
+      }
+      const parsers = {
+        visa: parseVisaCsr,
+        mastercard: parseMastercardCsr,
+        eloNational: parseEloNationalCsr,
+        eloDiscover: parseEloDiscoverCsr
+      };
+      csrParsedData = parsers[format](data);
+    } catch (err) {
+      if (csrErrorEl) csrErrorEl.textContent = err.message;
+      if (csrFileInfo) csrFileInfo.style.display = 'none';
+      if (validateCsrBtn) validateCsrBtn.disabled = true;
+      csrParsedData = null;
+      return;
+    }
+
+    // Update UI
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('csrNetwork', csrParsedData.network);
+    if (csrBinEl) csrBinEl.textContent = csrParsedData.bin;
+    setText('csrFileIdLabel', csrParsedData.fileIdLabel);
+    if (csrFileIdEl) csrFileIdEl.textContent = csrParsedData.fileId;
+    const serialRow = document.getElementById('csrSerialRow');
+    const expiryRow = document.getElementById('csrExpiryRow');
+    if (serialRow) serialRow.style.display = csrParsedData.serial ? '' : 'none';
+    if (expiryRow) expiryRow.style.display = csrParsedData.expiry ? '' : 'none';
+    if (csrParsedData.serial) setText('csrSerial', csrParsedData.serial);
+    if (csrParsedData.expiry) setText('csrExpiry', `${csrParsedData.expiry.substring(0, 2)}/${csrParsedData.expiry.substring(2, 4)}`);
+    if (csrCaIndexEl) csrCaIndexEl.textContent = csrParsedData.caKeyIndex;
+    if (csrExponentEl) csrExponentEl.textContent = csrParsedData.exponent;
+    if (csrCertSizeEl) csrCertSizeEl.textContent = `${csrParsedData.certBytes} bytes (${csrParsedData.certBytes * 8} bits)` + (csrParsedData.signatureHex ? ' + CA file signature' : '');
+    const csrIssuerCertHexEl = document.getElementById('csrIssuerCertHex');
+    if (csrIssuerCertHexEl) csrIssuerCertHexEl.value = csrParsedData.certHex;
+    if (csrFileInfo) csrFileInfo.style.display = 'block';
+
+    if (validateCsrBtn) validateCsrBtn.disabled = false;
+}
+
+const csrFormatSelect = document.getElementById('csrFormatSelect');
+
+function updateCsrFormatControls() {
+  const fmt = csrFormatSelect ? csrFormatSelect.value : 'auto';
+  const keyGroup = document.getElementById('csrCaKeySelectGroup');
+  const expGroup = document.getElementById('csrIssuerExpGroup');
+  if (keyGroup) keyGroup.style.display = fmt === 'eloDiscover' ? '' : 'none';
+  if (expGroup) expGroup.style.display = (fmt === 'eloNational' || fmt === 'eloDiscover') ? '' : 'none';
+  const keySel = document.getElementById('csrCaKeySelect');
+  if (keySel && keySel.options.length <= 1 && caPublicKeys.length) {
+    keySel.innerHTML = '<option value="-1">-- select CA key --</option>' + caPublicKeys.map((k, i) =>
+      `<option value="${i}">${k.network} ${k.index} (${k.size} bit)</option>`).join('');
+  }
+}
+
+csrFormatSelect?.addEventListener('change', function() {
+  updateCsrFormatControls();
+  if (csrLastFileData) processCsrFileData(csrLastFileData);
+});
+document.getElementById('csrIssuerExp')?.addEventListener('input', function() {
+  if (csrLastFileData && csrParsedData) processCsrFileData(csrLastFileData);
+});
+document.getElementById('csrCaKeySelect')?.addEventListener('change', function() {
+  if (csrLastFileData) processCsrFileData(csrLastFileData);
+});
+updateCsrFormatControls();
 
 validateCsrBtn?.addEventListener('click', function() {
   if (!csrParsedData) {
@@ -3014,26 +3208,35 @@ validateCsrBtn?.addEventListener('click', function() {
   const caKeyIndex = csrParsedData.caKeyIndex;
   const certBytes = csrParsedData.certBytes;
 
+  log(`Network: ${csrParsedData.network}`);
   log(`BIN: ${csrParsedData.bin}`);
-  log(`File ID: ${csrParsedData.fileId}`);
+  log(`${csrParsedData.fileIdLabel}: ${csrParsedData.fileId}`);
+  if (csrParsedData.serial) log(`Serial Number: ${csrParsedData.serial}`);
+  if (csrParsedData.expiry) log(`Expiry: ${csrParsedData.expiry.substring(0, 2)}/${csrParsedData.expiry.substring(2, 4)}`);
   log(`CA Key Index: ${caKeyIndex}`);
   log(`Exponent from file: ${csrParsedData.exponent}`);
   log(`Certificate size: ${certBytes} bytes (${certBytes * 8} bits)`);
   log('');
 
-  // Find matching CA key by index and size (Mastercard only - RID A000000004)
-  const mastercardRid = 'A000000004';
-  const matchingKeys = caPublicKeys.filter(k =>
-    k.rid === mastercardRid &&
-    k.index === caKeyIndex &&
-    k.modulus.length === certHex.length
-  );
+  // Find matching CA key: explicitly selected (Elo Discover), or by
+  // network RID (null = any network), index and size
+  const rid = csrParsedData.rid;
+  let matchingKeys;
+  if (csrParsedData.explicitKey) {
+    matchingKeys = [csrParsedData.explicitKey];
+  } else {
+    matchingKeys = caPublicKeys.filter(k =>
+      (!rid || k.rid === rid) &&
+      k.index === caKeyIndex &&
+      k.modulus.length === certHex.length
+    );
+  }
 
   if (matchingKeys.length === 0) {
-    log(`Error: No Mastercard CA key found with index ${caKeyIndex} and size ${certBytes * 8} bits.`);
-    log('Available Mastercard keys:');
-    caPublicKeys.filter(k => k.rid === mastercardRid).forEach(k => {
-      log(`  Index ${k.index}: ${k.size} bits`);
+    log(`Error: No ${csrParsedData.network} CA key found with index ${caKeyIndex} and size ${certBytes * 8} bits.`);
+    log('Available keys:');
+    caPublicKeys.filter(k => !rid || k.rid === rid).forEach(k => {
+      log(`  ${k.network} index ${k.index}: ${k.size} bits`);
     });
     return;
   }
@@ -3177,6 +3380,47 @@ validateCsrBtn?.addEventListener('click', function() {
         hashVerEl.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
         hashVerEl.style.padding = '10px';
         hashVerEl.style.borderRadius = '4px';
+      }
+    }
+
+    // Verify the CA file signature (Visa: PKCS#1 v1.5 SHA-1 over header || recovered cert)
+    if (csrParsedData.signatureHex && csrParsedData.headerHex) {
+      log('');
+      log('=== CA File Signature Verification ===');
+      try {
+        const sigRecovered = emvModPow(
+          emvHexToBigInt(csrParsedData.signatureHex),
+          emvHexToBigInt(usedKey.exponent),
+          emvHexToBigInt(usedKey.modulus)
+        ).toString(16).toUpperCase().padStart(csrParsedData.signatureHex.length, '0');
+
+        const DIGEST_INFO_SHA1 = '3021300906052B0E03021A05000414';
+        let sigOk = false;
+        let sigHash = null;
+        if (sigRecovered.startsWith('0001')) {
+          let i = 4;
+          while (i + 2 <= sigRecovered.length && sigRecovered.substring(i, i + 2) === 'FF') i += 2;
+          if (sigRecovered.substring(i, i + 2) === '00' &&
+              sigRecovered.substring(i + 2).startsWith(DIGEST_INFO_SHA1)) {
+            sigHash = sigRecovered.substring(i + 2 + DIGEST_INFO_SHA1.length, i + 2 + DIGEST_INFO_SHA1.length + 40);
+            sigOk = sigHash.length === 40;
+          }
+        }
+        if (!sigOk) {
+          log('Signature block has unexpected structure (not PKCS#1 v1.5 with SHA-1).');
+          return;
+        }
+        log(`Signature hash: ${sigHash}`);
+        emvCalcSHA1(new Uint8Array(emvHexToBytes(csrParsedData.headerHex + recoveredHex))).then(fileHashBytes => {
+          if (!fileHashBytes) { log('SHA-1 calculation failed for file signature.'); return; }
+          const fileHash = emvBytesToHex(fileHashBytes);
+          log(`Calculated hash over file header + recovered certificate: ${fileHash}`);
+          log(fileHash === sigHash
+            ? '*** FILE SIGNATURE VALID - response is authentic ***'
+            : '*** FILE SIGNATURE DOES NOT MATCH ***');
+        });
+      } catch (e) {
+        log(`Signature verification failed: ${e.message}`);
       }
     }
   });
