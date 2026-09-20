@@ -1,0 +1,71 @@
+---
+layout: null
+permalink: /hair/
+title: Hair Day
+description: A hairstyle for every day of the year — picked for the season, the weekday and the holiday. Plus step-by-step how-tos, a hair salon sandbox and two games.
+sitemap: true
+---
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Hair Day — a hairstyle for every day of the year</title>
+    <meta name="description" content="{{ page.description }}" />
+    <meta name="theme-color" content="#ff4f9a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Hair Day" />
+    <meta property="og:title" content="Hair Day" />
+    <meta property="og:description" content="{{ page.description }}" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%87%3C/text%3E%3C/svg%3E"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ '/assets/hair/hair.css' | relative_url }}" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <button class="brand" data-go="#/">
+          <span class="logo">💇</span>
+          <span>Hair Day</span>
+        </button>
+        <span class="spacer"></span>
+        <button class="chip" id="langbtn" title="Language / Idioma">EN</button>
+        <button class="chip" id="themebtn" title="Light / dark">☀️</button>
+      </div>
+      <main id="view">
+        <noscript>
+          <div class="card">
+            <h2>Hair Day</h2>
+            <p>
+              This app needs JavaScript switched on — everything runs right here
+              in your browser, and nothing is ever sent anywhere.
+            </p>
+          </div>
+        </noscript>
+      </main>
+      <p class="muted center" style="margin-top:28px">
+        Everything you pick is saved only on this device. 💾
+      </p>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="{{ '/assets/hair/hair-data.js' | relative_url }}"></script>
+    <script src="{{ '/assets/hair/hair-draw.js' | relative_url }}"></script>
+    <script src="{{ '/assets/hair/hair-app.js' | relative_url }}"></script>
+    <script src="{{ '/assets/hair/hair-games.js' | relative_url }}"></script>
+    <script>
+      HairApp.start();
+    </script>
+  </body>
+</html>
