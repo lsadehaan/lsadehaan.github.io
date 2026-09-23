@@ -1,0 +1,450 @@
+/* ===== Shop - builds on emvtools.css tab styles ===== */
+
+.shop-banner {
+  margin: 12px 0;
+  padding: 10px 16px;
+  border: 1px solid cyan;
+  border-radius: 6px;
+  background: var(--gray-3);
+  color: cyan;
+  text-align: center;
+  font-weight: bold;
+}
+
+.shop-muted {
+  color: var(--white-2);
+  font-size: 0.9em;
+}
+
+.shop-good {
+  color: #68d391;
+}
+
+.shop-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: cyan;
+  color: var(--gray-4);
+  font-size: 0.8em;
+  text-align: center;
+}
+
+/* ===== Buttons & forms ===== */
+.shop-btn {
+  display: inline-block;
+  padding: 8px 14px;
+  border: 1px solid cyan;
+  border-radius: 6px;
+  background: cyan;
+  color: var(--gray-4);
+  font-family: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.shop-btn:hover {
+  opacity: 0.85;
+}
+
+.shop-btn.secondary {
+  background: transparent;
+  color: cyan;
+}
+
+.shop-btn.danger {
+  background: #e53e3e;
+  border-color: #e53e3e;
+  color: var(--white-1);
+}
+
+.shop-btn.small {
+  padding: 3px 8px;
+  font-size: 0.8em;
+}
+
+.shop-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  margin: 12px 0;
+}
+
+.shop-form.shop-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: none;
+}
+
+.shop-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shop-form label.shop-check,
+.shop-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-toolbar input,
+.shop-toolbar select,
+.shop-form input:not([type="checkbox"]),
+.shop-form select,
+.shop-form textarea,
+.shop-qty {
+  padding: 8px;
+  border: 1px solid var(--gray-1);
+  border-radius: 6px;
+  background: var(--gray-4);
+  color: var(--white-1);
+  font-family: inherit;
+}
+
+.shop-qty {
+  width: 60px;
+}
+
+.shop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.shop-msg {
+  margin: 0;
+  color: var(--white-2);
+}
+
+/* ===== Store grid ===== */
+.shop-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.shop-toolbar input {
+  flex: 1 1 200px;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--gray-1);
+  border-radius: 8px;
+  background: var(--gray-3);
+}
+
+.shop-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+  font-size: 3.5em;
+  cursor: pointer;
+}
+
+.shop-thumb.large {
+  height: 200px;
+  border-radius: 8px;
+  cursor: default;
+}
+
+.shop-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: cyan;
+  color: var(--gray-4);
+  font-size: 0.25em;
+  font-weight: bold;
+}
+
+.shop-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+
+.shop-card-body h3 {
+  margin: 0;
+  cursor: pointer;
+}
+
+.shop-card-body .shop-row {
+  margin-top: auto;
+}
+
+.shop-price {
+  color: var(--white-1);
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.shop-stars {
+  color: #f6ad55;
+  letter-spacing: 1px;
+}
+
+.shop-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+/* ===== Tables & summaries ===== */
+.shop-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.shop-table th,
+.shop-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--gray-1);
+  text-align: left;
+}
+
+.shop-summary {
+  max-width: 420px;
+  margin-left: auto;
+}
+
+.shop-summary > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.shop-summary > .shop-total {
+  margin-top: 6px;
+  border-top: 1px solid var(--gray-1);
+  padding-top: 8px;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.shop-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shop-rec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--gray-1);
+  border-radius: 6px;
+  background: var(--gray-3);
+  color: var(--white-1);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shop-order {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--gray-1);
+  border-radius: 8px;
+  background: var(--gray-3);
+}
+
+.shop-order-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shop-order li {
+  margin: 6px 0;
+}
+
+/* ===== Reviews ===== */
+.shop-detail {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+}
+
+.shop-detail h2 {
+  margin-top: 0;
+}
+
+.shop-review {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-1);
+}
+
+.shop-review p {
+  margin: 6px 0 0;
+}
+
+.shop-verified {
+  margin: 0 6px;
+  color: #68d391;
+  font-size: 0.8em;
+}
+
+.shop-breakdown {
+  max-width: 320px;
+}
+
+.shop-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+}
+
+.shop-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--gray-1);
+}
+
+.shop-bar > div {
+  height: 100%;
+  border-radius: 4px;
+  background: #f6ad55;
+}
+
+/* ===== Marketing ===== */
+.shop-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.shop-stat {
+  padding: 12px;
+  border: 1px solid var(--gray-1);
+  border-radius: 8px;
+  background: var(--gray-3);
+}
+
+.shop-stat-val {
+  color: cyan;
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+.shop-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shop-list {
+  padding-left: 18px;
+}
+
+.shop-list li {
+  margin: 4px 0;
+}
+
+/* ===== Modal & toast ===== */
+.shop-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.shop-modal[hidden],
+.shop-toast[hidden],
+.shop-banner[hidden] {
+  display: none;
+}
+
+.shop-modal-box {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 24px;
+  border-radius: 10px;
+  background: var(--gray-2);
+}
+
+.shop-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: none;
+  background: none;
+  color: var(--white-1);
+  font-size: 1.8em;
+  cursor: pointer;
+}
+
+.shop-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  z-index: 200;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 18px;
+  border-radius: 6px;
+  background: cyan;
+  color: var(--gray-4);
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .shop-detail {
+    grid-template-columns: 1fr;
+  }
+  .shop-table {
+    font-size: 0.85em;
+  }
+}
+
+/* ===== Installed app (Play Store / home screen) ===== */
+/* Hide the website's navigation so the shop feels like a standalone app. */
+@media (display-mode: standalone) {
+  .site-header,
+  footer {
+    display: none;
+  }
+}
+
+.page-content p a,
+.shop-muted a {
+  color: cyan;
+}
