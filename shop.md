@@ -2,6 +2,7 @@
 layout: toolpage
 title: Shop — Buy, Review & Promote
 permalink: /shop/
+manifest: /assets/shop/manifest.webmanifest
 description: >-
   A browser-based demo storefront: browse products, add them to a cart,
   check out with promo codes, write and read star-rated reviews, and manage
@@ -14,7 +15,7 @@ description: >-
 
 <div id="promoBanner" class="shop-banner" hidden></div>
 
-<p>A demo storefront with reviews and marketing tools. Everything is stored locally in your browser — no real payments are taken.</p>
+<p>A demo storefront with reviews and marketing tools. Everything is stored locally in your browser — no real payments are taken. <a href="{{ site.baseurl }}/shop/privacy/">Privacy policy</a></p>
 
 <div class="tab-container">
   <div class="tab-nav">
@@ -129,3 +130,8 @@ description: >-
 <div id="toast" class="shop-toast" hidden></div>
 
 <script src="{{ site.baseurl }}/assets/js/shop.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("{{ site.baseurl }}/shop/sw.js");
+  }
+</script>

@@ -432,3 +432,17 @@
     font-size: 0.85em;
   }
 }
+
+/* ===== Installed app (Play Store / home screen) ===== */
+/* Hide the website's navigation so the shop feels like a standalone app. */
+@media (display-mode: standalone) {
+  .site-header,
+  footer {
+    display: none;
+  }
+}
+
+.page-content p a,
+.shop-muted a {
+  color: cyan;
+}
