@@ -1,0 +1,313 @@
+{
+  "sizes": {
+    "title": 1920,
+    "scene": 1600,
+    "closeup": 1100,
+    "portrait": 480
+  },
+  "images": [
+    {
+      "file": "c1_scene.jpg",
+      "creation": "MBrgKWLDCm",
+      "kind": "scene"
+    },
+    {
+      "file": "title.jpg",
+      "creation": "ovSygTU829",
+      "kind": "title"
+    },
+    {
+      "file": "c2_scene.jpg",
+      "creation": "vQyiOXza47",
+      "kind": "scene"
+    },
+    {
+      "file": "c3_scene.jpg",
+      "creation": "Lw0ecKdswO",
+      "kind": "scene"
+    },
+    {
+      "file": "c4_scene.jpg",
+      "creation": "BhgOlpIoQR",
+      "kind": "scene"
+    },
+    {
+      "file": "c5_scene.jpg",
+      "creation": "p8jUxVRehw",
+      "kind": "scene"
+    },
+    {
+      "file": "c6_scene.jpg",
+      "creation": "rgYMn1cxtc",
+      "kind": "scene"
+    },
+    {
+      "file": "c1_portrait.jpg",
+      "creation": "s7TdTPkl8e",
+      "kind": "closeup"
+    },
+    {
+      "file": "c1_poster.jpg",
+      "creation": "dts7sC9XSL",
+      "kind": "closeup"
+    },
+    {
+      "file": "c1_blood.jpg",
+      "creation": "Ifw4wq2tvE",
+      "kind": "closeup"
+    },
+    {
+      "file": "c1_glass.jpg",
+      "creation": "lJVXV3egv9",
+      "kind": "closeup"
+    },
+    {
+      "file": "c1_table.jpg",
+      "creation": "Lw0e0iKswO",
+      "kind": "closeup"
+    },
+    {
+      "file": "c2_flour.jpg",
+      "creation": "JNXmXB9Oq4",
+      "kind": "closeup"
+    },
+    {
+      "file": "c2_safe.jpg",
+      "creation": "kszTzYK16B",
+      "kind": "closeup"
+    },
+    {
+      "file": "c2_cake.jpg",
+      "creation": "nVH1HK4YQD",
+      "kind": "closeup"
+    },
+    {
+      "file": "c3_case.jpg",
+      "creation": "aFP3P3wfSh",
+      "kind": "closeup"
+    },
+    {
+      "file": "c3_coin.jpg",
+      "creation": "mEJNJ6LhJQ",
+      "kind": "closeup"
+    },
+    {
+      "file": "c3_coffee.jpg",
+      "creation": "mEJNJRghJQ",
+      "kind": "closeup"
+    },
+    {
+      "file": "c3_camera.jpg",
+      "creation": "Lw0e0IRswO",
+      "kind": "closeup"
+    },
+    {
+      "file": "c4_teacup.jpg",
+      "creation": "bx2W2pC5Y2",
+      "kind": "closeup"
+    },
+    {
+      "file": "c4_watch.jpg",
+      "creation": "KLG0GQckqp",
+      "kind": "closeup"
+    },
+    {
+      "file": "c5_candlestick.jpg",
+      "creation": "79dtdlvJAL",
+      "kind": "closeup"
+    },
+    {
+      "file": "c5_hanky.jpg",
+      "creation": "rgYMYKnxtc",
+      "kind": "closeup"
+    },
+    {
+      "file": "c5_sand.jpg",
+      "creation": "iGvQvNr3uK",
+      "kind": "closeup"
+    },
+    {
+      "file": "c5_clock.jpg",
+      "creation": "EbN2NCCuuO",
+      "kind": "closeup"
+    },
+    {
+      "file": "c6_glove.jpg",
+      "creation": "WDbx500cXe",
+      "kind": "closeup"
+    },
+    {
+      "file": "c6_hair.jpg",
+      "creation": "u56AiHUQLD",
+      "kind": "closeup"
+    },
+    {
+      "file": "c6_map.jpg",
+      "creation": "ovSyUmi829",
+      "kind": "closeup"
+    },
+    {
+      "file": "c6_lantern.jpg",
+      "creation": "rgYMW6vxtc",
+      "kind": "closeup"
+    },
+    {
+      "file": "p_verado.jpg",
+      "creation": "iGvQaXR3uK",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_bluenson.jpg",
+      "creation": "3zaFfoTREY",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_nair.jpg",
+      "creation": "u56AiOnQLD",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_lindqvist.jpg",
+      "creation": "kszTnRt16B",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_okafor.jpg",
+      "creation": "5jAcGRvKxe",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_hoffmann.jpg",
+      "creation": "Tdks1KYVNR",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_rivera.jpg",
+      "creation": "O6Bho8rynm",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_pennywhistle.jpg",
+      "creation": "Tdks19vVNR",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_tanaka.jpg",
+      "creation": "Lw0eTEyswO",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_obrien.jpg",
+      "creation": "YMqrb4zWeC",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_marchand.jpg",
+      "creation": "SyDopbSUb8",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_kowalski.jpg",
+      "creation": "p8jULzOehw",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_bell.jpg",
+      "creation": "N2mEhUw6D9",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_fraser.jpg",
+      "creation": "xSWDcq4jfW",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_vogel.jpg",
+      "creation": "vQyiPoza47",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_moreau.jpg",
+      "creation": "4RIfmZJ9Aa",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_blackwood.jpg",
+      "creation": "6AhuanDiJO",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_gale.jpg",
+      "creation": "dts7gaOXSL",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_petrova.jpg",
+      "creation": "mEJNyqXhJQ",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_haddad.jpg",
+      "creation": "1lnVWOUr4r",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_bloom.jpg",
+      "creation": "KLG0nJakqp",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_bright.jpg",
+      "creation": "ovSywqW829",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_ashford.jpg",
+      "creation": "vQyi4xva47",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_hart.jpg",
+      "creation": "SyDoepIUb8",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_quill.jpg",
+      "creation": "O6Bh881ynm",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_olsen.jpg",
+      "creation": "iGvQfET3uK",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_berg.jpg",
+      "creation": "O6Bh8mjynm",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_holm.jpg",
+      "creation": "w4eIXt47EI",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_mcrae.jpg",
+      "creation": "jUcpTd6LD0",
+      "kind": "portrait"
+    },
+    {
+      "file": "p_rivers.jpg",
+      "creation": "KLG0neOkqp",
+      "kind": "portrait"
+    }
+  ],
+  "alternates": [
+    {
+      "file": "c1_scene.jpg",
+      "creation": "6AhuIOGiJO",
+      "kind": "scene",
+      "note": "alternate take (Seedream 5 Pro)"
+    }
+  ]
+}
